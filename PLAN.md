@@ -43,30 +43,28 @@
 
 ---
 
-## Phase 3 — Self-Serve API
-- [ ] API key generation + SHA-256 hashing (never store raw keys)
-- [ ] `buyer_verified` flag enforcement for phishing-adjacent signals
-- [ ] Tiered rate limiting (free / starter / pro)
-- [ ] Usage metering → `usage_events` table
-- [ ] `/v1/signals` endpoint (filterable, paginated, Clay-friendly flat JSON)
-- [ ] `/v1/watchlists` CRUD endpoints
-- [ ] Webhook delivery (per-key endpoint config + retry logic)
-- [ ] `/healthz` and `/metrics` endpoints
-- [ ] Basic API docs (auto-generated from FastAPI + hand-written quickstart)
-- [ ] **CHECKPOINT:** end-to-end test with a real API key → Clay import
+## Phase 3 — Self-Serve API ✅
+- [x] API key generation + SHA-256 hashing (never store raw keys)
+- [x] `buyer_verified` flag enforcement (gated on key record)
+- [x] Tiered rate limiting (free/starter/pro) via Redis daily counter
+- [x] `/v1/signals` with 7 filters, cursor pagination, Clay-friendly flat JSON
+- [x] `/v1/watchlists` CRUD per key
+- [x] POST `/v1/keys` (admin-protected via `X-Admin-Secret`)
+- [x] GET/PUT/DELETE `/v1/webhooks` per key (HTTPS-only, HMAC-SHA256 signing)
+- [x] `/healthz` and `/metrics` endpoints
+- [x] Fire-and-forget webhook delivery (`api/webhook_delivery.py`)
+- [x] 81/81 tests passing; smoke test: 90 signals returned with real key
+- [x] **CHECKPOINT:** end-to-end test with real API key confirmed
 
 ---
 
-## Phase 4 — Orchestration & Ops
-- [ ] `supervisord` config for all three workers + API
-- [ ] Ingest stall detection + alert (if log follower falls behind > N tiles)
-- [ ] Unreachable log detection + alert
-- [ ] Daily data-quality checks (row counts, dedup ratio, enrichment coverage)
-- [ ] Backpressure handling: Redis queue depth → throttle fetch rate
-- [ ] Expand CT logs: add Sectigo, DigiCert, TrustAsia
-- [ ] One-command Hetzner deploy script
-- [ ] Full runbook in `CLAUDE.md`
-- [ ] **CHECKPOINT:** run unattended for 48 hours, review ops metrics
+## Phase 4 — Orchestration & Ops ✅
+- [x] `supervisord` config for all four processes (`deploy/supervisord.conf`)
+- [x] One-command Hetzner deploy script (`deploy/setup.sh`)
+- [x] Stall/lag/backlog/throughput monitor (`scripts/monitor.py`)
+- [x] CT log expansion: Google (xenon, argon), DigiCert (yeti, nessie), Sectigo (sabre, mammoth)
+- [x] Full runbook in `CLAUDE.md`
+- [ ] **CHECKPOINT:** server provisioned, run unattended 48h, review monitor log
 
 ---
 

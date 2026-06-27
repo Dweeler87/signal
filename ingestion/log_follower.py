@@ -45,8 +45,10 @@ BACKPRESSURE_LIMIT = 5000   # max queued-but-unwritten certs before pausing
 WRITE_BATCH_SIZE = 500      # certs per ClickHouse INSERT
 WRITE_INTERVAL = 2.0        # max seconds between forced flushes
 
-# Active logs — toggle enabled=True to activate additional logs
+# Active logs — toggle enabled=True to activate additional logs.
+# Start with nimbus2025 only for local dev; enable others on Hetzner for full coverage.
 LOG_REGISTRY: list[dict] = [
+    # ── Cloudflare ──────────────────────────────────────────────────────────
     {
         "log_id": "nimbus2025",
         "operator": "cloudflare",
@@ -59,17 +61,83 @@ LOG_REGISTRY: list[dict] = [
         "url": "https://ct.cloudflare.com/logs/nimbus2024/",
         "enabled": False,
     },
+    # ── Google ───────────────────────────────────────────────────────────────
+    {
+        "log_id": "xenon2025h2",
+        "operator": "google",
+        "url": "https://ct.googleapis.com/logs/us1/xenon2025h2/",
+        "enabled": False,
+    },
+    {
+        "log_id": "xenon2026h1",
+        "operator": "google",
+        "url": "https://ct.googleapis.com/logs/us1/xenon2026h1/",
+        "enabled": False,
+    },
+    {
+        "log_id": "argon2026h1",
+        "operator": "google",
+        "url": "https://ct.googleapis.com/logs/us1/argon2026h1/",
+        "enabled": False,
+    },
+    # ── Let's Encrypt ────────────────────────────────────────────────────────
+    # Note: oak.ct.letsencrypt.org may fail on networks with strict DNSSEC.
+    # Works fine on Hetzner. Enable after verifying DNS resolution on the box.
     {
         "log_id": "oak2025h2",
         "operator": "letsencrypt",
         "url": "https://oak.ct.letsencrypt.org/2025h2/",
-        "enabled": False,  # DNS may fail depending on resolver
+        "enabled": False,
     },
     {
         "log_id": "oak2026",
         "operator": "letsencrypt",
         "url": "https://oak.ct.letsencrypt.org/2026/",
-        "enabled": False,  # DNS may fail depending on resolver
+        "enabled": False,
+    },
+    # ── DigiCert ─────────────────────────────────────────────────────────────
+    {
+        "log_id": "yeti2025h2",
+        "operator": "digicert",
+        "url": "https://yeti2025h2.ct.digicert.com/log/",
+        "enabled": False,
+    },
+    {
+        "log_id": "yeti2026h1",
+        "operator": "digicert",
+        "url": "https://yeti2026h1.ct.digicert.com/log/",
+        "enabled": False,
+    },
+    {
+        "log_id": "nessie2026h1",
+        "operator": "digicert",
+        "url": "https://nessie2026h1.ct.digicert.com/log/",
+        "enabled": False,
+    },
+    # ── Sectigo ──────────────────────────────────────────────────────────────
+    {
+        "log_id": "sabre2025h2",
+        "operator": "sectigo",
+        "url": "https://sabre2025h2.ct.comodo.com/",
+        "enabled": False,
+    },
+    {
+        "log_id": "sabre2026h1",
+        "operator": "sectigo",
+        "url": "https://sabre2026h1.ct.comodo.com/",
+        "enabled": False,
+    },
+    {
+        "log_id": "mammoth2025h2",
+        "operator": "sectigo",
+        "url": "https://mammoth2025h2.ct.comodo.com/",
+        "enabled": False,
+    },
+    {
+        "log_id": "mammoth2026h1",
+        "operator": "sectigo",
+        "url": "https://mammoth2026h1.ct.comodo.com/",
+        "enabled": False,
     },
 ]
 
