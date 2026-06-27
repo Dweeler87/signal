@@ -74,6 +74,9 @@ CREATE TABLE IF NOT EXISTS domains (
     cdn_provider      LowCardinality(Nullable(String)),
     country_code      LowCardinality(Nullable(String)),
     -- Firmographic enrichment via PDL Company API (company-level only, no person data)
+    -- Technographic (from cert SAN patterns — detected at ingest time)
+    saas_vendor       Nullable(String),
+    -- Firmographic enrichment via PDL Company API (company-level only, no person data)
     company_name      Nullable(String),
     company_industry  LowCardinality(Nullable(String)),
     company_size      LowCardinality(Nullable(String)),  -- e.g. "1-10", "11-50", "51-200"

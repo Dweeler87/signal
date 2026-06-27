@@ -31,6 +31,7 @@ import redis.asyncio as aioredis
 import structlog
 
 from db.client import get_client, get_settings
+from enrichment.technographic import detect_saas_vendor, is_saas_domain
 from ingestion.checkpoint import Checkpoint
 from ingestion.dedup import DedupFilter
 from ingestion.parser import ParsedCert, extract_domains, parse_entries_response
@@ -244,7 +245,11 @@ async def _flush(ch, certs: list[ParsedCert], stats: IngestStats) -> None:
             c.is_precert,
             c.sans,
         ])
+        saas_vendor = detect_saas_vendor(c.sans, c.issuer_org)
         for pd in extract_domains(c.sans):
+            # Skip domains that ARE the SaaS platform itself (e.g. mystore.myshopify.com)
+            if is_saas_domain(pd.domain):
+                continue
             domain_rows.append([
                 pd.domain,
                 pd.apex_domain,
@@ -253,6 +258,7 @@ async def _flush(ch, certs: list[ParsedCert], stats: IngestStats) -> None:
                 c.sha256_tbs,
                 c.not_before,
                 c.not_before,  # last_seen_at = first_seen_at on initial insert
+                saas_vendor,
             ])
 
     try:
@@ -272,6 +278,7 @@ async def _flush(ch, certs: list[ParsedCert], stats: IngestStats) -> None:
                 column_names=[
                     "domain", "apex_domain", "is_wildcard", "is_apex",
                     "first_seen_cert", "first_seen_at", "last_seen_at",
+                    "saas_vendor",
                 ],
             )
         stats.written += len(certs)

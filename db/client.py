@@ -12,6 +12,11 @@ class Settings(BaseSettings):
     log_level: str = "info"
     # On first run, start this many entries before the log head (0 = replay all)
     initial_lookback: int = 2000
+    # PDL Company API key (optional — enrichment skipped if not set)
+    pdl_api_key: str = ""
+    # Enrichment worker settings
+    enrichment_batch_size: int = 100
+    enrichment_poll_interval: int = 5  # seconds between polls
 
     class Config:
         env_file = ".env"
