@@ -1,6 +1,6 @@
 [build-system]
 requires = ["setuptools>=68"]
-build-backend = "setuptools.backends.legacy:build"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "signal"
@@ -27,6 +27,8 @@ dependencies = [
     "maxminddb==2.6.2",
     # Structured logging
     "structlog==24.4.0",
+    # TLD extraction for apex domain parsing
+    "tldextract==5.1.2",
 ]
 
 [project.optional-dependencies]
