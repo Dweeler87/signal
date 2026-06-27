@@ -105,6 +105,8 @@ async def run_batch(ch, settings, enrichers: dict) -> int:
     log.info("enrichment_batch_start", count=len(rows))
 
     sem = asyncio.Semaphore(20)
+    # PDL free tier: ~1 req/sec. Pro tier: ~10 req/sec.
+    pdl_sem = asyncio.Semaphore(1)
     enriched_domains: list[str] = []
     insert_rows = []
 
@@ -124,13 +126,16 @@ async def run_batch(ch, settings, enrichers: dict) -> int:
                 except Exception:
                     pass
 
-            # PDL firmographic: apex domains only
+            # PDL firmographic: apex domains only, rate-limited separately
             if is_apex:
                 try:
-                    pdl_result = await pdl.enrich(domain, apex_domain, [], "")
+                    async with pdl_sem:
+                        pdl_result = await pdl.enrich(domain, apex_domain, [], "")
                     result.merge(pdl_result)
-                except Exception:
-                    pass
+                    if pdl_result.company_name:
+                        log.info("pdl_hit", domain=apex_domain, company=pdl_result.company_name)
+                except Exception as exc:
+                    log.warning("pdl_error", domain=apex_domain, error=str(exc))
 
         enriched_at = datetime.now(timezone.utc)
 
