@@ -1,0 +1,16 @@
+version: "3.9"
+
+# Local dev only — ClickHouse runs on ClickHouse Cloud, not locally.
+# This compose file provides Redis for local development and testing.
+
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --save "" --appendonly no
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
