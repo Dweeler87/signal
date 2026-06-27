@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     # Enrichment worker settings
     enrichment_batch_size: int = 100
     enrichment_poll_interval: int = 5  # seconds between polls
+    # API server settings
+    api_admin_secret: str = ""        # protects POST /v1/keys — set in .env
 
     class Config:
         env_file = ".env"
