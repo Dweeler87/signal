@@ -1,12 +1,6 @@
 """
-POST /v1/signup — self-serve free-tier API key provisioning.
-
-Flow:
-  1. Validate email
-  2. Check for existing key for this email (prevent duplicate provisioning)
-  3. Provision a free-tier key
-  4. Send key via email (Resend)
-  5. Return 200 (key is in the email — not shown in response for security)
+POST /v1/signup        — self-serve API key provisioning (free or paid tier)
+POST /v1/signup/reissue — revoke lost key and issue a replacement to the same email
 """
 
 import re
@@ -160,3 +154,94 @@ async def signup(body: SignupRequest, ch=Depends(get_ch)):
     if checkout_url:
         response["checkout_url"] = checkout_url
     return response
+
+
+# ---------------------------------------------------------------------------
+# POST /v1/signup/reissue — replace a lost key
+# ---------------------------------------------------------------------------
+
+class ReissueRequest(BaseModel):
+    email: str
+
+
+async def send_reissue_email(email: str, raw_key: str, tier: str, resend_api_key: str) -> None:
+    body_text = f"""Your Forelight API key has been re-issued.
+
+Your new API key:
+
+  {raw_key}
+
+Tier: {tier}
+
+Your previous key has been revoked. Keep this key secret — it cannot be retrieved again.
+
+  curl -s "https://forelight.net/v1/signals?limit=5" \\
+    -H "Authorization: Bearer {raw_key}"
+
+Full docs: https://forelight.net/docs
+
+---
+Forelight — The earliest buying signal. Infrastructure, not intent.
+"""
+    payload = {
+        "from": "Forelight <hello@forelight.net>",
+        "to": [email],
+        "subject": "Your new Forelight API key",
+        "text": body_text,
+    }
+    async with httpx.AsyncClient(timeout=10) as http:
+        r = await http.post(
+            RESEND_SEND_URL,
+            json=payload,
+            headers={"Authorization": f"Bearer {resend_api_key}"},
+        )
+        r.raise_for_status()
+
+
+@router.post("/reissue", status_code=status.HTTP_200_OK)
+async def reissue(body: ReissueRequest, ch=Depends(get_ch)):
+    """Revoke the existing key for this email and issue a fresh one."""
+    settings = get_settings()
+
+    if not EMAIL_RE.match(body.email):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Invalid email address.",
+        )
+
+    email_lower = body.email.strip().lower()
+    label = f"signup:{email_lower}"
+
+    existing = ch.query(
+        "SELECT key_hash, tier FROM signal.api_keys WHERE label = %(label)s AND revoked = false LIMIT 1",
+        parameters={"label": label},
+    ).result_rows
+
+    if not existing:
+        # Return the same message whether email exists or not — prevents enumeration
+        return {"message": "If that email has a key, a replacement is on its way."}
+
+    old_key_hash, tier = existing[0]
+
+    # Revoke old key
+    ch.command(
+        "ALTER TABLE signal.api_keys UPDATE revoked = true WHERE key_hash = %(h)s",
+        parameters={"h": old_key_hash},
+    )
+
+    # Issue new key with same tier and label
+    raw_key, new_key_hash = generate_key()
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    ch.insert(
+        "signal.api_keys",
+        [[new_key_hash, tier, False, label, now, False, None, None]],
+        column_names=["key_hash", "tier", "buyer_verified", "label", "created_at", "revoked", "webhook_url", "webhook_secret"],
+    )
+
+    if settings.resend_api_key:
+        try:
+            await send_reissue_email(email_lower, raw_key, tier, settings.resend_api_key)
+        except Exception:
+            pass
+
+    return {"message": "If that email has a key, a replacement is on its way."}

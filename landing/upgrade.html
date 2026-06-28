@@ -96,6 +96,15 @@
 
 <div id="msg"></div>
 
+<div style="margin-top:2.5rem;text-align:center;border-top:1px solid var(--border);padding-top:2rem;width:100%;max-width:480px">
+  <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1rem">Lost your API key? Enter your email and we'll revoke it and send a replacement.</p>
+  <div style="display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap">
+    <input type="email" id="reissueEmail" placeholder="you@company.com" style="padding:0.65rem 1rem;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:0.85rem;outline:none;width:260px" />
+    <button onclick="reissueKey()" style="padding:0.65rem 1.25rem;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:0.85rem;cursor:pointer">Re-issue key</button>
+  </div>
+  <div id="reissue-msg" style="font-size:0.82rem;margin-top:0.75rem;min-height:1.2rem;color:var(--muted)"></div>
+</div>
+
 <script>
   const params = new URLSearchParams(window.location.search);
   if (params.get('success') === '1') {
@@ -132,6 +141,26 @@
       msg.textContent = err.message;
       msg.className = 'err';
       document.querySelectorAll('button').forEach(b => b.disabled = false);
+    }
+  }
+
+  async function reissueKey() {
+    const email = document.getElementById('reissueEmail').value.trim();
+    const msgEl = document.getElementById('reissue-msg');
+    if (!email) return;
+    msgEl.style.color = 'var(--muted)';
+    msgEl.textContent = 'Sending…';
+    try {
+      await fetch('/v1/signup/reissue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      msgEl.style.color = 'var(--accent)';
+      msgEl.textContent = '✓ If that email has a key, a replacement is on its way.';
+    } catch {
+      msgEl.style.color = '#f87171';
+      msgEl.textContent = 'Network error. Try again.';
     }
   }
 </script>
