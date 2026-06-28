@@ -115,12 +115,17 @@ async def stripe_webhook(request: Request, ch=Depends(get_ch)):
             return o.get(key, default)
         return getattr(o, key, default)
 
-    def _meta(o) -> dict:
-        m = _get(o, "metadata") or {}
-        return dict(m)
+    def _meta_key(o, key) -> str | None:
+        """Read a single key from a Stripe metadata field (dict or StripeObject)."""
+        m = _get(o, "metadata")
+        if m is None:
+            return None
+        if isinstance(m, dict):
+            return m.get(key)
+        return getattr(m, key, None)
 
     if event_type in ("customer.subscription.created", "customer.subscription.updated"):
-        key_hash = _meta(obj).get("key_hash")
+        key_hash = _meta_key(obj, "key_hash")
         if not key_hash:
             return {"status": "ignored", "reason": "no key_hash in metadata"}
 
@@ -159,7 +164,7 @@ async def stripe_webhook(request: Request, ch=Depends(get_ch)):
         return {"status": "updated", "tier": new_tier, "key_hash": key_hash[:8] + "..."}
 
     if event_type == "customer.subscription.deleted":
-        key_hash = _meta(obj).get("key_hash")
+        key_hash = _meta_key(obj, "key_hash")
         if not key_hash:
             return {"status": "ignored", "reason": "no key_hash in metadata"}
 
