@@ -9,13 +9,13 @@ Flow:
   5. Return 200 (key is in the email — not shown in response for security)
 """
 
-import hashlib
 import re
 from datetime import datetime, timezone
 
 import httpx
+import stripe
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 
 from api.auth import generate_key
 from api.deps import get_ch
@@ -25,21 +25,28 @@ router = APIRouter(prefix="/v1/signup", tags=["signup"])
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 RESEND_SEND_URL = "https://api.resend.com/emails"
+VALID_TIERS = {"free", "starter", "growth", "pro"}
 
 
 class SignupRequest(BaseModel):
     email: str
+    tier: str = "free"
 
 
-async def send_key_email(email: str, raw_key: str, resend_api_key: str) -> None:
-    """Send the API key to the user via Resend."""
+async def send_key_email(email: str, raw_key: str, tier: str, resend_api_key: str) -> None:
+    tier_lines = {
+        "free":    "This key gives you 100 API requests per day.",
+        "starter": "Your key starts on the free tier and will be upgraded to Starter once your payment completes.",
+        "growth":  "Your key starts on the free tier and will be upgraded to Growth once your payment completes.",
+        "pro":     "Your key starts on the free tier and will be upgraded to Pro once your payment completes.",
+    }
     body_text = f"""Welcome to Forelight.
 
-Your free API key:
+Your API key:
 
   {raw_key}
 
-This key gives you 100 API requests per day. Keep it secret — it cannot be retrieved again.
+{tier_lines.get(tier, "")} Keep it secret — it cannot be retrieved again.
 
 Quick start:
 
@@ -80,6 +87,10 @@ async def signup(body: SignupRequest, ch=Depends(get_ch)):
             detail="Invalid email address.",
         )
 
+    tier = body.tier.lower() if body.tier else "free"
+    if tier not in VALID_TIERS:
+        tier = "free"
+
     email_lower = body.email.strip().lower()
 
     # Prevent duplicate keys for the same email
@@ -96,6 +107,7 @@ async def signup(body: SignupRequest, ch=Depends(get_ch)):
     raw_key, key_hash = generate_key()
     now = datetime.now(timezone.utc).replace(tzinfo=None)
 
+    # Always provision as free — webhook upgrades tier after payment succeeds
     ch.insert(
         "signal.api_keys",
         [[
@@ -116,13 +128,35 @@ async def signup(body: SignupRequest, ch=Depends(get_ch)):
 
     if settings.resend_api_key:
         try:
-            await send_key_email(email_lower, raw_key, settings.resend_api_key)
+            await send_key_email(email_lower, raw_key, tier, settings.resend_api_key)
         except Exception:
-            # Key is already provisioned — don't fail the request, but log
-            # The user can contact support to retrieve their key
             pass
 
-    return {
-        "message": "Check your email for your API key.",
-        "docs": "https://forelight.net/docs",
-    }
+    # For paid tiers, create a Stripe Checkout session and return the URL
+    checkout_url: str | None = None
+    if tier != "free" and settings.stripe_secret_key:
+        tier_prices = {
+            "starter": settings.stripe_starter_price_id,
+            "growth":  settings.stripe_growth_price_id,
+            "pro":     settings.stripe_pro_price_id,
+        }
+        price_id = tier_prices.get(tier)
+        if price_id:
+            try:
+                stripe.api_key = settings.stripe_secret_key
+                session = stripe.checkout.Session.create(
+                    mode="subscription",
+                    line_items=[{"price": price_id, "quantity": 1}],
+                    success_url="https://forelight.net/upgrade?success=1",
+                    cancel_url="https://forelight.net/",
+                    subscription_data={"metadata": {"key_hash": key_hash}},
+                    metadata={"key_hash": key_hash},
+                )
+                checkout_url = session.url
+            except Exception:
+                pass  # key is provisioned; user can upgrade later via /upgrade
+
+    response: dict = {"message": "Check your email for your API key.", "docs": "https://forelight.net/docs"}
+    if checkout_url:
+        response["checkout_url"] = checkout_url
+    return response
