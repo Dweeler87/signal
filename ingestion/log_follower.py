@@ -46,7 +46,7 @@ WRITE_BATCH_SIZE = 500      # certs per ClickHouse INSERT
 WRITE_INTERVAL = 2.0        # max seconds between forced flushes
 
 # Active logs — toggle enabled=True to activate additional logs.
-# Start with nimbus2025 only for local dev; enable others on Hetzner for full coverage.
+# URLs sourced from https://www.gstatic.com/ct/log_list/v3/log_list.json
 LOG_REGISTRY: list[dict] = [
     # ── Cloudflare ──────────────────────────────────────────────────────────
     {
@@ -56,85 +56,109 @@ LOG_REGISTRY: list[dict] = [
         "enabled": True,
     },
     {
-        "log_id": "nimbus2024",
+        "log_id": "nimbus2026",
         "operator": "cloudflare",
-        "url": "https://ct.cloudflare.com/logs/nimbus2024/",
-        "enabled": False,
+        "url": "https://ct.cloudflare.com/logs/nimbus2026/",
+        "enabled": True,
     },
     # ── Google ───────────────────────────────────────────────────────────────
+    # Note: argon=us1, xenon=eu1 (counterintuitive but confirmed from log_list.json)
     {
-        "log_id": "xenon2025h2",
+        "log_id": "argon2026h1",
         "operator": "google",
-        "url": "https://ct.googleapis.com/logs/us1/xenon2025h2/",
-        "enabled": False,  # 2025 H2 — historical only
+        "url": "https://ct.googleapis.com/logs/us1/argon2026h1/",
+        "enabled": True,
+    },
+    {
+        "log_id": "argon2026h2",
+        "operator": "google",
+        "url": "https://ct.googleapis.com/logs/us1/argon2026h2/",
+        "enabled": False,  # H2 — enable July 2026
     },
     {
         "log_id": "xenon2026h1",
         "operator": "google",
-        "url": "https://ct.googleapis.com/logs/us1/xenon2026h1/",
+        "url": "https://ct.googleapis.com/logs/eu1/xenon2026h1/",
         "enabled": True,
     },
     {
-        "log_id": "argon2026h1",
+        "log_id": "xenon2026h2",
         "operator": "google",
-        "url": "https://ct.googleapis.com/logs/eu1/argon2026h1/",
-        "enabled": True,
+        "url": "https://ct.googleapis.com/logs/eu1/xenon2026h2/",
+        "enabled": False,  # H2 — enable July 2026
     },
     # ── Let's Encrypt ────────────────────────────────────────────────────────
+    # oak2026h1 and oak2026h2 are retired — no usable LE log currently available
     {
-        "log_id": "oak2025h2",
+        "log_id": "oak2026h1",
         "operator": "letsencrypt",
-        "url": "https://oak.ct.letsencrypt.org/2025h2/",
-        "enabled": False,  # 2025 H2 — historical only
-    },
-    {
-        "log_id": "oak2026",
-        "operator": "letsencrypt",
-        "url": "https://oak.ct.letsencrypt.org/2026/",
-        "enabled": True,
+        "url": "https://oak.ct.letsencrypt.org/2026h1/",
+        "enabled": False,  # retired
     },
     # ── DigiCert ─────────────────────────────────────────────────────────────
+    # DigiCert renamed from yeti/nessie to wyvern/sphinx for 2026
     {
-        "log_id": "yeti2025h2",
+        "log_id": "wyvern2026h1",
         "operator": "digicert",
-        "url": "https://yeti2025h2.ct.digicert.com/log/",
-        "enabled": False,  # 2025 H2 — historical only
-    },
-    {
-        "log_id": "yeti2026h1",
-        "operator": "digicert",
-        "url": "https://yeti2026h1.ct.digicert.com/log/",
+        "url": "https://wyvern.ct.digicert.com/2026h1/",
         "enabled": True,
     },
     {
-        "log_id": "nessie2026h1",
+        "log_id": "wyvern2026h2",
         "operator": "digicert",
-        "url": "https://nessie2026h1.ct.digicert.com/log/",
+        "url": "https://wyvern.ct.digicert.com/2026h2/",
+        "enabled": False,  # H2 — enable July 2026
+    },
+    {
+        "log_id": "sphinx2026h1",
+        "operator": "digicert",
+        "url": "https://sphinx.ct.digicert.com/2026h1/",
         "enabled": True,
+    },
+    {
+        "log_id": "sphinx2026h2",
+        "operator": "digicert",
+        "url": "https://sphinx.ct.digicert.com/2026h2/",
+        "enabled": False,  # H2 — enable July 2026
     },
     # ── Sectigo ──────────────────────────────────────────────────────────────
+    # Sectigo moved from ct.comodo.com to ct.sectigo.com; usable logs are elephant/tiger
+    # mammoth/sabre are readonly (no new certs submitted)
     {
-        "log_id": "sabre2025h2",
+        "log_id": "elephant2026h1",
         "operator": "sectigo",
-        "url": "https://sabre2025h2.ct.comodo.com/",
-        "enabled": False,  # 2025 H2 — historical only
-    },
-    {
-        "log_id": "sabre2026h1",
-        "operator": "sectigo",
-        "url": "https://sabre2026h1.ct.comodo.com/",
+        "url": "https://elephant2026h1.ct.sectigo.com/",
         "enabled": True,
     },
     {
-        "log_id": "mammoth2025h2",
+        "log_id": "elephant2026h2",
         "operator": "sectigo",
-        "url": "https://mammoth2025h2.ct.comodo.com/",
-        "enabled": False,  # 2025 H2 — historical only
+        "url": "https://elephant2026h2.ct.sectigo.com/",
+        "enabled": False,  # H2 — enable July 2026
     },
     {
-        "log_id": "mammoth2026h1",
+        "log_id": "tiger2026h1",
         "operator": "sectigo",
-        "url": "https://mammoth2026h1.ct.comodo.com/",
+        "url": "https://tiger2026h1.ct.sectigo.com/",
+        "enabled": True,
+    },
+    {
+        "log_id": "tiger2026h2",
+        "operator": "sectigo",
+        "url": "https://tiger2026h2.ct.sectigo.com/",
+        "enabled": False,  # H2 — enable July 2026
+    },
+    # ── TrustAsia ────────────────────────────────────────────────────────────
+    {
+        "log_id": "trustasia2026a",
+        "operator": "trustasia",
+        "url": "https://ct2026-a.trustasia.com/log2026a/",
+        "enabled": True,
+    },
+    {
+        "log_id": "trustasia2026b",
+        "operator": "trustasia",
+        "url": "https://ct2026-b.trustasia.com/log2026b/",
         "enabled": True,
     },
 ]
