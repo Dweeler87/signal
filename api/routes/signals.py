@@ -25,7 +25,6 @@ from fastapi import APIRouter, Depends, Query
 
 from api.deps import authenticated_key, get_ch
 from api.schemas import SignalListResponse, SignalOut
-from signals.watchlist import filter_signals_for_key
 from signals.types import Signal, SignalType
 
 router = APIRouter(prefix="/v1/signals", tags=["signals"])
@@ -39,7 +38,7 @@ def list_signals(
     type: str | None = Query(default=None, description="Filter by signal_type"),
     domain: str | None = Query(default=None, description="Exact domain match"),
     apex_domain: str | None = Query(default=None),
-    industry: str | None = Query(default=None, description="company_industry contains"),
+    industry: str | None = Query(default=None, description="company_industry match"),
     saas_vendor: str | None = Query(default=None),
     hosting_provider: str | None = Query(default=None),
     since: datetime | None = Query(default=None, description="ISO 8601 timestamp"),
@@ -48,36 +47,37 @@ def list_signals(
     key: dict = Depends(authenticated_key),
     ch=Depends(get_ch),
 ):
-    # Build WHERE clauses
+    # Build WHERE clauses with table-qualified column names.
+    # s = signals, d = domains (joined for fresh enrichment data).
     conditions = []
     params: dict = {}
 
     if type:
-        conditions.append("signal_type = %(type)s")
+        conditions.append("s.signal_type = %(type)s")
         params["type"] = type
 
     if domain:
-        conditions.append("domain = %(domain)s")
+        conditions.append("s.domain = %(domain)s")
         params["domain"] = domain
 
     if apex_domain:
-        conditions.append("apex_domain = %(apex_domain)s")
+        conditions.append("s.apex_domain = %(apex_domain)s")
         params["apex_domain"] = apex_domain
 
     if industry:
-        conditions.append("lower(company_industry) = %(industry)s")
+        conditions.append("lower(coalesce(d.company_industry, s.company_industry, '')) = %(industry)s")
         params["industry"] = industry.lower()
 
     if saas_vendor:
-        conditions.append("lower(saas_vendor) = %(saas_vendor)s")
+        conditions.append("lower(coalesce(d.saas_vendor, s.saas_vendor, '')) = %(saas_vendor)s")
         params["saas_vendor"] = saas_vendor.lower()
 
     if hosting_provider:
-        conditions.append("lower(hosting_provider) = %(hosting_provider)s")
+        conditions.append("lower(coalesce(d.hosting_provider, s.hosting_provider, '')) = %(hosting_provider)s")
         params["hosting_provider"] = hosting_provider.lower()
 
     if since:
-        conditions.append("detected_at >= %(since)s")
+        conditions.append("s.detected_at >= %(since)s")
         params["since"] = since.replace(tzinfo=None) if since.tzinfo else since
 
     # Cursor pagination (detected_at DESC)
@@ -86,34 +86,52 @@ def list_signals(
             cursor_dt = datetime.fromisoformat(
                 base64.b64decode(cursor.encode()).decode()
             )
-            conditions.append("detected_at < %(cursor_dt)s")
+            conditions.append("s.detected_at < %(cursor_dt)s")
             params["cursor_dt"] = cursor_dt.replace(tzinfo=None)
         except Exception:
             pass  # invalid cursor → ignore and start from the top
 
     where = "WHERE " + " AND ".join(conditions) if conditions else ""
 
-    # Total count (without cursor so callers know overall size)
-    count_where = "WHERE " + " AND ".join(
-        c for c in conditions if "cursor_dt" not in c
-    ) if any("cursor_dt" not in c for c in conditions) else ""
+    # Domain subquery — latest enrichment data per apex domain
+    domains_subq = """
+        (SELECT domain, hosting_provider, saas_vendor, company_name, company_industry
+         FROM signal.domains FINAL) d
+    """
+
+    # Total count (without cursor)
+    count_conditions = [c for c in conditions if "cursor_dt" not in c]
+    count_where = "WHERE " + " AND ".join(count_conditions) if count_conditions else ""
     count_params = {k: v for k, v in params.items() if k != "cursor_dt"}
     total_row = ch.query(
-        f"SELECT count() FROM signal.signals {count_where}",
+        f"""
+        SELECT count()
+        FROM signal.signals s
+        LEFT JOIN {domains_subq} ON s.apex_domain = d.domain
+        {count_where}
+        """,
         parameters=count_params,
     ).result_rows
     total = total_row[0][0] if total_row else 0
 
-    # Fetch one extra to detect if there's a next page
+    # Fetch one extra to detect if there's a next page.
+    # coalesce(d.field, s.field) so fresh enrichment data overrides the snapshot.
     rows = ch.query(
         f"""
         SELECT
-            signal_id, signal_type, domain, apex_domain, detected_at,
-            hosting_provider, saas_vendor,
-            company_name, company_industry
-        FROM signal.signals
+            s.signal_id,
+            s.signal_type,
+            s.domain,
+            s.apex_domain,
+            s.detected_at,
+            coalesce(d.hosting_provider, s.hosting_provider) AS hosting_provider,
+            coalesce(d.saas_vendor,      s.saas_vendor)      AS saas_vendor,
+            coalesce(d.company_name,     s.company_name)     AS company_name,
+            coalesce(d.company_industry, s.company_industry) AS company_industry
+        FROM signal.signals s
+        LEFT JOIN {domains_subq} ON s.apex_domain = d.domain
         {where}
-        ORDER BY detected_at DESC
+        ORDER BY s.detected_at DESC
         LIMIT %(limit)s
         """,
         parameters={**params, "limit": limit + 1},
@@ -144,7 +162,6 @@ def list_signals(
     ).result_rows
 
     if watchlist_rows:
-        # Convert to Signal objects for watchlist matching
         from signals.types import Signal as SigObj, SignalType as ST
         sig_objs = []
         for s in signals_out:
