@@ -25,6 +25,7 @@ from fastapi import APIRouter, Depends, Query, Response
 
 from api.deps import authenticated_key, get_ch
 from api.schemas import SignalListResponse, SignalOut
+
 from signals.types import Signal, SignalType
 
 router = APIRouter(prefix="/v1/signals", tags=["signals"])
@@ -50,15 +51,46 @@ _SIGNAL_SCORES: dict[str, int] = {
     "new_subdomain": 20,
 }
 
+_SIGNAL_LABELS: dict[str, str] = {
+    "domain_velocity": "3+ new domains in 7 days — acquisition, rebrand, or major launch",
+    "geographic_expansion": "country-code domain registered — new geographic market entry",
+    "wildcard_cert_issued": "wildcard cert issued — dynamic subdomain infrastructure build-out",
+    "saas_adoption_detected": "SaaS platform adoption detected at cert issuance",
+    "infrastructure_expansion": "5+ new subdomains in 24h — rapid infrastructure growth",
+    "new_apex_domain": "new top-level domain registered",
+    "new_subdomain": "new subdomain detected",
+}
+
+
+def _age_label(age: timedelta) -> tuple[str, int]:
+    """Return (human label, recency boost)."""
+    if age < timedelta(hours=1):
+        return "detected <1h ago", 10
+    if age < timedelta(hours=24):
+        return f"detected {int(age.total_seconds() / 3600)}h ago", 10
+    if age < timedelta(days=7):
+        return f"detected {age.days}d ago", 5
+    return f"detected {age.days}d ago", 0
+
 
 def compute_score(signal_type: str, detected_at: datetime) -> int:
     base = _SIGNAL_SCORES.get(signal_type, 30)
     now = datetime.now(timezone.utc)
     if detected_at.tzinfo is None:
         detected_at = detected_at.replace(tzinfo=timezone.utc)
-    age = now - detected_at
-    boost = 10 if age < timedelta(hours=24) else (5 if age < timedelta(days=7) else 0)
+    _, boost = _age_label(now - detected_at)
     return min(100, base + boost)
+
+
+def compute_score_reason(signal_type: str, detected_at: datetime) -> str:
+    base = _SIGNAL_SCORES.get(signal_type, 30)
+    label = _SIGNAL_LABELS.get(signal_type, signal_type)
+    now = datetime.now(timezone.utc)
+    if detected_at.tzinfo is None:
+        detected_at = detected_at.replace(tzinfo=timezone.utc)
+    age_label, boost = _age_label(now - detected_at)
+    boost_str = f" +{boost} recency" if boost else ""
+    return f"{label}; {age_label} (score: {base}{boost_str})"
 
 
 @router.get("", response_model=SignalListResponse)
@@ -189,6 +221,7 @@ def list_signals(
             company_name=row[7] or None,
             company_industry=row[8] or None,
             score=compute_score(row[1], row[4]),
+            score_reason=compute_score_reason(row[1], row[4]),
         )
         for row in rows
     ]

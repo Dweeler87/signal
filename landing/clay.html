@@ -197,12 +197,36 @@ Content-Type: application/json
 
   <p>Response groups signals by domain — map <code>data.acme_com[0].score</code> directly to a Clay column. Use in a Clay HTTP API enrichment block with method POST and JSON body.</p>
 
+  <!-- WEBHOOKS -->
+  <div class="step-badge">Advanced</div>
+  <h2>Webhooks — push signals to HubSpot or Salesforce in real time</h2>
+  <p>Instead of polling the API from Clay, register a webhook to receive signals the moment they're detected. Use this to create records, update lead scores, or trigger sequences automatically.</p>
+
+  <div class="code-block">POST https://forelight.net/v1/webhooks
+Authorization: Bearer YOUR_API_KEY
+Content-Type: application/json
+
+{
+  "url": "https://hooks.zapier.com/hooks/catch/YOUR_HOOK_ID/",
+  "secret": "optional-hmac-secret"
+}</div>
+
+  <p>Forelight sends a <code>POST</code> to your URL for every new signal that matches your watchlist. The payload is a single <code>SignalOut</code> object — identical schema to the GET /v1/signals response. If you set a <code>secret</code>, each request includes an <code>X-Forelight-Signature</code> header (HMAC-SHA256 of the raw body).</p>
+
+  <p><strong>HubSpot setup:</strong> Use a Zapier or Make.com webhook as the relay. Trigger: webhook catch → Action: HubSpot "Create or update contact/company" with <code>apex_domain</code> as the lookup key. Map <code>signal_type</code>, <code>score</code>, and <code>score_reason</code> to custom properties.</p>
+
+  <p><strong>Salesforce setup:</strong> Use Salesforce Flow or a platform event. Relay via Zapier: webhook catch → Salesforce "Create record" on a custom Signal__c object with fields Signal_Type__c, Score__c, Apex_Domain__c, and Detected_At__c.</p>
+
+  <div class="callout">
+    <strong>Tip:</strong> Combine webhooks with watchlists. Add your ICP accounts to a watchlist (<code>POST /v1/watchlists</code>) and the webhook will only fire for those accounts — no noise, no filtering needed downstream.
+  </div>
+
   <h2>Need help?</h2>
-  <p>Email <a href="mailto:clifton.n.harris@gmail.com">clifton.n.harris@gmail.com</a> or check the <a href="/docs">full API docs</a>.</p>
+  <p>Email <a href="mailto:hello@forelight.net">hello@forelight.net</a> or check the <a href="/docs">full API docs</a>.</p>
 </div>
 
 <footer>
-  <p>Forelight — <a href="/">Home</a> · <a href="/docs">API docs</a> · <a href="mailto:clifton.n.harris@gmail.com">Contact</a></p>
+  <p>Forelight — <a href="/">Home</a> · <a href="/docs">API docs</a> · <a href="mailto:hello@forelight.net">Contact</a></p>
 </footer>
 
 </body>

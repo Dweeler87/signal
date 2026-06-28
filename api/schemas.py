@@ -24,7 +24,8 @@ class SignalOut(BaseModel):
     company_industry: str | None = None
     company_size: str | None = None
     company_country: str | None = None
-    score: int = 0  # 1-100 buying signal score; higher = stronger signal
+    score: int = 0              # 1-100 buying signal strength
+    score_reason: str = ""      # plain-English explanation of what's driving the score
 
     model_config = {"from_attributes": True}
 

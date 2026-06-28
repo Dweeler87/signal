@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, Response
 
 from api.auth import check_rate_limit
 from api.deps import authenticated_key_no_rl, get_ch, get_redis
-from api.routes.signals import compute_score
+from api.routes.signals import compute_score, compute_score_reason
 from api.schemas import BatchRequest, BatchResponse, SignalOut
 
 router = APIRouter(prefix="/v1/signals", tags=["signals"])
@@ -82,6 +82,7 @@ def batch_signals(
             company_name=row[7] or None,
             company_industry=row[8] or None,
             score=compute_score(row[1], row[4]),
+            score_reason=compute_score_reason(row[1], row[4]),
         )
         result.setdefault(row[3], []).append(sig)
 

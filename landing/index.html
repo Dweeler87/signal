@@ -317,16 +317,16 @@
   <div class="badge"><span class="live-dot"></span>Live — monitoring CT logs in real time</div>
   <h1>The earliest buying signal.<br><em>Infrastructure, not intent.</em></h1>
   <p class="hero-sub">
-    Every SSL certificate issued on the internet is public by law (RFC 6962).
-    Forelight reads them all — in real time — and delivers structured sales signals
-    the moment a company launches new infrastructure.
+    What if you knew the day a company adopted Shopify — 48 hours after it happened, not three weeks later?
+    Forelight reads every SSL certificate issued on the internet in real time (public by law under RFC 6962)
+    and delivers deterministic infrastructure signals before your competitors see them.
   </p>
 
   <form class="signup-form" id="signupForm">
     <input type="email" id="emailInput" placeholder="you@company.com" required autocomplete="email" />
     <button type="submit" id="signupBtn">Get free API key</button>
   </form>
-  <p class="signup-note">Free tier · 100 requests/day · No credit card</p>
+  <p class="signup-note">Free tier · 100 requests/day · No credit card · Minutes of lag, not weeks</p>
   <div id="signup-msg"></div>
 </div>
 
@@ -334,16 +334,16 @@
 <div class="signal-demo">
   <h2><span class="live-dot"></span>Example signal — fired within minutes of cert issuance</h2>
   <div class="code-block"><pre>{
-  <span class="k">"signal_type"</span><span class="p">:</span>      <span class="s">"saas_adoption_detected"</span><span class="p">,</span>
-  <span class="k">"domain"</span><span class="p">:</span>           <span class="s">"store.acmecorp.com.myshopify.com"</span><span class="p">,</span>
-  <span class="k">"apex_domain"</span><span class="p">:</span>      <span class="s">"acmecorp.com"</span><span class="p">,</span>
-  <span class="k">"detected_at"</span><span class="p">:</span>      <span class="s">"2026-06-28T09:14:02Z"</span><span class="p">,</span>
-  <span class="k">"saas_vendor"</span><span class="p">:</span>      <span class="s">"Shopify"</span><span class="p">,</span>
-  <span class="k">"company_name"</span><span class="p">:</span>     <span class="s">"Acme Corp"</span><span class="p">,</span>
+  <span class="k">"signal_type"</span><span class="p">:</span>   <span class="s">"saas_adoption_detected"</span><span class="p">,</span>
+  <span class="k">"domain"</span><span class="p">:</span>        <span class="s">"store.acmecorp.com.myshopify.com"</span><span class="p">,</span>
+  <span class="k">"apex_domain"</span><span class="p">:</span>   <span class="s">"acmecorp.com"</span><span class="p">,</span>
+  <span class="k">"detected_at"</span><span class="p">:</span>   <span class="s">"2026-06-28T09:14:02Z"</span><span class="p">,</span>
+  <span class="k">"saas_vendor"</span><span class="p">:</span>   <span class="s">"Shopify"</span><span class="p">,</span>
+  <span class="k">"company_name"</span><span class="p">:</span>  <span class="s">"Acme Corp"</span><span class="p">,</span>
   <span class="k">"company_industry"</span><span class="p">:</span> <span class="s">"retail"</span><span class="p">,</span>
-  <span class="k">"hosting_provider"</span><span class="p">:</span> <span class="s">"Shopify"</span><span class="p">,</span>
-  <span class="k">"score"</span><span class="p">:</span>            <span class="n">75</span><span class="p">,</span>
-  <span class="k">"signal_id"</span><span class="p">:</span>        <span class="s">"a3f1c2e0-..."</span>
+  <span class="k">"score"</span><span class="p">:</span>         <span class="n">75</span><span class="p">,</span>
+  <span class="k">"score_reason"</span><span class="p">:</span>  <span class="s">"SaaS platform adoption detected at cert issuance; detected 2h ago (score: 65 +10 recency)"</span><span class="p">,</span>
+  <span class="k">"signal_id"</span><span class="p">:</span>     <span class="s">"a3f1c2e0-..."</span>
 }</pre></div>
 </div>
 
@@ -591,7 +591,7 @@
     Forelight &mdash; Real-time intelligence from Certificate Transparency logs &mdash;
     <a href="/docs">API docs</a> &middot;
     <a href="/clay">Clay guide</a> &middot;
-    <a href="mailto:clifton.n.harris@gmail.com">Contact</a>
+    <a href="mailto:hello@forelight.net">Contact</a>
   </p>
   <p style="margin-top:0.5rem;">Certificates are public by law under RFC 6962. We run our own CT log follower — no scraping, no ToS violations.</p>
 </footer>
