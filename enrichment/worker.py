@@ -26,8 +26,11 @@ from db.client import get_client, get_settings
 from enrichment.asn_lookup import AsnLookup
 from enrichment.base import EnrichmentResult
 from enrichment.dns_resolver import DnsResolver
+from enrichment.dns_txt import DnsTxt
 from enrichment.firmographic_pdl import FirmographicPDL
+from enrichment.http_probe import HttpProbe
 from enrichment.technographic import Technographic
+from enrichment.whois_lookup import WhoisLookup
 from signals.engine import generate_signals
 
 log = structlog.get_logger()
@@ -89,6 +92,9 @@ async def run_batch(ch, settings, enrichers: dict) -> int:
     dns = enrichers["dns"]
     asn = enrichers["asn"]
     pdl = enrichers["pdl"]
+    dns_txt = enrichers["dns_txt"]
+    whois = enrichers["whois"]
+    http_probe = enrichers["http_probe"]
 
     # Poll for unenriched domains (FINAL gives deduplicated view)
     rows = ch.query(f"""
@@ -137,6 +143,28 @@ async def run_batch(ch, settings, enrichers: dict) -> int:
                 except Exception as exc:
                     log.warning("pdl_error", domain=apex_domain, error=str(exc))
 
+            # DNS TXT, WHOIS, HTTP probe: apex domains only
+            if is_apex:
+                try:
+                    txt_result = await dns_txt.enrich(domain, apex_domain, [], "")
+                    result.merge(txt_result)
+                except Exception:
+                    pass
+
+                try:
+                    whois_result = await whois.enrich(domain, apex_domain, [], "")
+                    result.merge(whois_result)
+                except Exception:
+                    pass
+
+                try:
+                    http_result = await http_probe.enrich(domain, apex_domain, [], "")
+                    result.merge(http_result)
+                    if http_result.http_tech:
+                        log.info("http_tech_detected", domain=domain, tech=http_result.http_tech)
+                except Exception:
+                    pass
+
         enriched_at = datetime.now(timezone.utc)
 
         # Ensure first_seen_cert is exactly 32 bytes (FixedString(32) requirement)
@@ -161,6 +189,10 @@ async def run_batch(ch, settings, enrichers: dict) -> int:
             result.company_industry,
             result.company_size,
             result.company_country,
+            result.txt_vendor,
+            result.http_tech,
+            result.is_live,
+            result.domain_registered_at,
             enriched_at,
         ])
         enriched_domains.append(domain)
@@ -177,7 +209,9 @@ async def run_batch(ch, settings, enrichers: dict) -> int:
                 "saas_vendor",
                 "ip", "asn", "asn_org", "hosting_provider", "cdn_provider",
                 "country_code", "company_name", "company_industry",
-                "company_size", "company_country", "enrichment_at",
+                "company_size", "company_country",
+                "txt_vendor", "http_tech", "is_live", "domain_registered_at",
+                "enrichment_at",
             ],
         )
 
@@ -205,6 +239,9 @@ async def main() -> None:
             "asn": AsnLookup(http_client=http),
             "tech": Technographic(),
             "pdl": FirmographicPDL(api_key=settings.pdl_api_key, http_client=http),
+            "dns_txt": DnsTxt(),
+            "whois": WhoisLookup(),
+            "http_probe": HttpProbe(http_client=http),
         }
 
         log.info("enrichment_worker_started", pdl_enabled=bool(settings.pdl_api_key))

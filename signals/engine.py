@@ -57,7 +57,7 @@ async def generate_signals(ch, domain_names: list[str]) -> list[Signal]:
             domain, apex_domain, is_apex, is_wildcard,
             first_seen_cert, first_seen_at,
             company_name, company_industry, hosting_provider,
-            saas_vendor
+            saas_vendor, txt_vendor, http_tech, is_live, domain_registered_at
         FROM signal.domains FINAL
         WHERE domain IN ({placeholders})
     """).result_rows
@@ -65,7 +65,8 @@ async def generate_signals(ch, domain_names: list[str]) -> list[Signal]:
     for row in rows:
         (domain, apex_domain, is_apex, is_wildcard,
          first_seen_cert, first_seen_at,
-         company_name, company_industry, hosting_provider, saas_vendor) = row
+         company_name, company_industry, hosting_provider,
+         saas_vendor, txt_vendor, http_tech, is_live, domain_registered_at) = row
 
         candidates: list[Signal] = []
 
@@ -121,7 +122,9 @@ async def generate_signals(ch, domain_names: list[str]) -> list[Signal]:
                 hosting_provider=hosting_provider,
             ))
 
-        if saas_vendor:
+        # saas_adoption_detected fires from any detection method (SAN > TXT > HTTP)
+        effective_vendor = saas_vendor or txt_vendor or http_tech
+        if effective_vendor:
             candidates.append(Signal(
                 signal_type=SignalType.SAAS_ADOPTION_DETECTED,
                 domain=domain,
@@ -129,8 +132,27 @@ async def generate_signals(ch, domain_names: list[str]) -> list[Signal]:
                 cert_sha256_tbs=first_seen_cert,
                 company_name=company_name,
                 company_industry=company_industry,
-                saas_vendor=saas_vendor,
+                saas_vendor=effective_vendor,
             ))
+
+        # fresh_domain: domain registered ≤30 days before first cert (brand new company)
+        if is_apex and domain_registered_at and first_seen_at:
+            reg = domain_registered_at.replace(tzinfo=None) if hasattr(domain_registered_at, "tzinfo") and domain_registered_at.tzinfo else domain_registered_at
+            first = first_seen_at.replace(tzinfo=None) if hasattr(first_seen_at, "tzinfo") and first_seen_at.tzinfo else first_seen_at
+            try:
+                age_at_cert = (first - reg).days
+                if 0 <= age_at_cert <= 30:
+                    candidates.append(Signal(
+                        signal_type=SignalType.FRESH_DOMAIN,
+                        domain=domain,
+                        apex_domain=apex_domain,
+                        cert_sha256_tbs=first_seen_cert,
+                        company_name=company_name,
+                        company_industry=company_industry,
+                        hosting_provider=hosting_provider,
+                    ))
+            except Exception:
+                pass
 
         # Dedup check: skip if signal already exists for this (type, domain) pair
         for signal in candidates:

@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any
+from datetime import datetime
 
 
 @dataclass
@@ -18,6 +18,11 @@ class EnrichmentResult:
     company_size: str | None = None
     company_country: str | None = None
     saas_vendor: str | None = None
+    # New enrichment fields
+    txt_vendor: str | None = None             # SaaS vendor detected from DNS TXT records
+    http_tech: str | None = None              # vendor detected from HTTP headers / redirect target
+    is_live: bool | None = None               # True if domain returned a non-5xx HTTP response
+    domain_registered_at: datetime | None = None  # WHOIS creation date (no registrant PII)
 
     def merge(self, other: "EnrichmentResult") -> "EnrichmentResult":
         """Merge another result into this one, other wins on non-None fields."""

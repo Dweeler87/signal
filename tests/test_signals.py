@@ -133,7 +133,7 @@ def _mock_ch(domain_rows=None, signal_exists=False, cert_rows=None):
             result.result_rows = [(1 if signal_exists else 0,)]
         elif "COMPANY_NAME IS NOT NULL" in sql_upper and "FROM SIGNAL.DOMAINS" in sql_upper:
             # Velocity domain query — return 6-column rows only for rows with company_name
-            # domain_row format: (domain, apex, is_apex, is_wildcard, cert, first_seen, company, industry, hosting, saas)
+            # domain_row format: 14 cols — see _domain_row() helper
             vel_rows = []
             for r in (domain_rows or []):
                 if len(r) >= 10 and r[6] is not None:
@@ -149,59 +149,105 @@ def _mock_ch(domain_rows=None, signal_exists=False, cert_rows=None):
     return ch
 
 
+def _domain_row(
+    domain="acme.com", apex="acme.com", is_apex=True, is_wildcard=False,
+    cert=b"\x01" * 32, first_seen=None,
+    company_name=None, company_industry=None, hosting_provider=None, saas_vendor=None,
+    txt_vendor=None, http_tech=None, is_live=None, domain_registered_at=None,
+):
+    """Build a 14-column domain row matching the engine's SELECT."""
+    if first_seen is None:
+        first_seen = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    return (
+        domain, apex, is_apex, is_wildcard,
+        cert, first_seen,
+        company_name, company_industry, hosting_provider, saas_vendor,
+        txt_vendor, http_tech, is_live, domain_registered_at,
+    )
+
+
 async def test_generate_signals_new_apex():
-    domain_rows = [(
-        "acme.com", "acme.com", True, False,
-        b"\x01" * 32, datetime(2026, 1, 1, tzinfo=timezone.utc),
-        None, None, None, None,
-    )]
-    ch = _mock_ch(domain_rows=domain_rows, signal_exists=False)
-
+    ch = _mock_ch(domain_rows=[_domain_row()], signal_exists=False)
     signals = await generate_signals(ch, ["acme.com"])
-
     assert any(s.signal_type == SignalType.NEW_APEX_DOMAIN for s in signals)
     ch.insert.assert_called_once()
 
 
 async def test_generate_signals_dedup():
     """If signal already exists, don't insert a duplicate."""
-    domain_rows = [(
-        "acme.com", "acme.com", True, False,
-        b"\x01" * 32, datetime(2026, 1, 1, tzinfo=timezone.utc),
-        None, None, None, None,
-    )]
-    ch = _mock_ch(domain_rows=domain_rows, signal_exists=True)
-
+    ch = _mock_ch(domain_rows=[_domain_row()], signal_exists=True)
     signals = await generate_signals(ch, ["acme.com"])
-
     assert signals == []
     ch.insert.assert_not_called()
 
 
 async def test_generate_signals_saas_adoption():
-    domain_rows = [(
-        "acme.com", "acme.com", True, False,
-        b"\x02" * 32, datetime(2026, 1, 1, tzinfo=timezone.utc),
-        "Acme Corp", "technology", "AWS", "Shopify",
-    )]
-    ch = _mock_ch(domain_rows=domain_rows, signal_exists=False)
-
+    ch = _mock_ch(
+        domain_rows=[_domain_row(company_name="Acme Corp", company_industry="technology",
+                                 hosting_provider="AWS", saas_vendor="Shopify")],
+        signal_exists=False,
+    )
     signals = await generate_signals(ch, ["acme.com"])
-
     types = {s.signal_type for s in signals}
     assert SignalType.NEW_APEX_DOMAIN in types
     assert SignalType.SAAS_ADOPTION_DETECTED in types
 
 
+async def test_generate_signals_saas_adoption_from_txt():
+    """saas_adoption_detected should fire when txt_vendor is set (no SAN match needed)."""
+    ch = _mock_ch(
+        domain_rows=[_domain_row(txt_vendor="HubSpot")],
+        signal_exists=False,
+    )
+    signals = await generate_signals(ch, ["acme.com"])
+    types = {s.signal_type for s in signals}
+    assert SignalType.SAAS_ADOPTION_DETECTED in types
+    adoption = next(s for s in signals if s.signal_type == SignalType.SAAS_ADOPTION_DETECTED)
+    assert adoption.saas_vendor == "HubSpot"
+
+
+async def test_generate_signals_saas_adoption_from_http():
+    """saas_adoption_detected should fire when http_tech is set."""
+    ch = _mock_ch(
+        domain_rows=[_domain_row(http_tech="Shopify")],
+        signal_exists=False,
+    )
+    signals = await generate_signals(ch, ["acme.com"])
+    types = {s.signal_type for s in signals}
+    assert SignalType.SAAS_ADOPTION_DETECTED in types
+
+
+async def test_generate_signals_fresh_domain():
+    """fresh_domain fires when domain was registered ≤30 days before first cert."""
+    from datetime import timedelta
+    reg_date = datetime(2025, 12, 20)  # 12 days before cert
+    first_seen = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    ch = _mock_ch(
+        domain_rows=[_domain_row(first_seen=first_seen, domain_registered_at=reg_date)],
+        signal_exists=False,
+    )
+    signals = await generate_signals(ch, ["acme.com"])
+    assert any(s.signal_type == SignalType.FRESH_DOMAIN for s in signals)
+
+
+async def test_generate_signals_no_fresh_domain_old_registration():
+    """fresh_domain does NOT fire for domains registered >30 days before cert."""
+    reg_date = datetime(2025, 1, 1)  # 365 days before cert
+    first_seen = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    ch = _mock_ch(
+        domain_rows=[_domain_row(first_seen=first_seen, domain_registered_at=reg_date)],
+        signal_exists=False,
+    )
+    signals = await generate_signals(ch, ["acme.com"])
+    assert not any(s.signal_type == SignalType.FRESH_DOMAIN for s in signals)
+
+
 async def test_generate_signals_wildcard_cert_issued():
     """Wildcard domains should generate a wildcard_cert_issued signal."""
-    domain_rows = [(
-        "example.com", "example.com", False, True,  # is_wildcard=True
-        b"\x03" * 32, datetime(2026, 1, 1, tzinfo=timezone.utc),
-        None, None, None, None,
-    )]
-    ch = _mock_ch(domain_rows=domain_rows, signal_exists=False)
-
+    ch = _mock_ch(
+        domain_rows=[_domain_row(domain="example.com", is_apex=False, is_wildcard=True, cert=b"\x03" * 32)],
+        signal_exists=False,
+    )
     signals = await generate_signals(ch, ["example.com"])
     assert any(s.signal_type == SignalType.WILDCARD_CERT_ISSUED for s in signals)
 

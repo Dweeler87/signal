@@ -13,6 +13,7 @@ class SignalType(str, Enum):
     GEOGRAPHIC_EXPANSION = "geographic_expansion"
     DOMAIN_VELOCITY = "domain_velocity"
     WILDCARD_CERT_ISSUED = "wildcard_cert_issued"
+    FRESH_DOMAIN = "fresh_domain"
 
 
 SIGNAL_COLUMN_NAMES: list[str] = [

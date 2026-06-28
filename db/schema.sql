@@ -73,7 +73,6 @@ CREATE TABLE IF NOT EXISTS domains (
     hosting_provider  LowCardinality(Nullable(String)),
     cdn_provider      LowCardinality(Nullable(String)),
     country_code      LowCardinality(Nullable(String)),
-    -- Firmographic enrichment via PDL Company API (company-level only, no person data)
     -- Technographic (from cert SAN patterns — detected at ingest time)
     saas_vendor       Nullable(String),
     -- Firmographic enrichment via PDL Company API (company-level only, no person data)
@@ -81,6 +80,11 @@ CREATE TABLE IF NOT EXISTS domains (
     company_industry  LowCardinality(Nullable(String)),
     company_size      LowCardinality(Nullable(String)),  -- e.g. "1-10", "11-50", "51-200"
     company_country   LowCardinality(Nullable(String)),
+    -- Extended enrichment (DNS TXT, HTTP probe, WHOIS)
+    txt_vendor        Nullable(String),    -- SaaS vendor detected from DNS TXT records
+    http_tech         Nullable(String),    -- vendor detected from HTTP headers / redirect target
+    is_live           Nullable(Bool),      -- domain returned a non-5xx HTTP response
+    domain_registered_at Nullable(DateTime),  -- WHOIS creation date (no registrant PII)
     enrichment_at     Nullable(DateTime)
 ) ENGINE = ReplacingMergeTree(last_seen_at)
 ORDER BY domain

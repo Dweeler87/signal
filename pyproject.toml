@@ -29,6 +29,8 @@ dependencies = [
     "structlog==24.4.0",
     # TLD extraction for apex domain parsing
     "tldextract==5.1.2",
+    # WHOIS domain registration date (no PII — only creation_date used)
+    "python-whois>=0.9.4",
 ]
 
 [project.optional-dependencies]

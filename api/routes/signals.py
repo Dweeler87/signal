@@ -44,6 +44,7 @@ TIER_LOOKBACK_DAYS: dict[str, int] = {
 _SIGNAL_SCORES: dict[str, int] = {
     "domain_velocity": 90,
     "geographic_expansion": 85,
+    "fresh_domain": 80,
     "wildcard_cert_issued": 70,
     "saas_adoption_detected": 65,
     "infrastructure_expansion": 50,
@@ -54,6 +55,7 @@ _SIGNAL_SCORES: dict[str, int] = {
 _SIGNAL_LABELS: dict[str, str] = {
     "domain_velocity": "3+ new domains in 7 days — acquisition, rebrand, or major launch",
     "geographic_expansion": "country-code domain registered — new geographic market entry",
+    "fresh_domain": "domain registered ≤30 days before first cert — brand new company launching infrastructure",
     "wildcard_cert_issued": "wildcard cert issued — dynamic subdomain infrastructure build-out",
     "saas_adoption_detected": "SaaS platform adoption detected at cert issuance",
     "infrastructure_expansion": "5+ new subdomains in 24h — rapid infrastructure growth",
