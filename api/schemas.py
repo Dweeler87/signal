@@ -44,6 +44,7 @@ class BatchRequest(BaseModel):
     domains: list[str] = Field(..., min_length=1, max_length=50, description="Apex domains to look up (max 50)")
     type: str | None = Field(default=None, description="Optional signal_type filter")
     limit_per_domain: int = Field(default=5, ge=1, le=10)
+    score_min: int | None = Field(default=None, ge=1, le=100, description="Minimum signal score (1-100)")
 
 
 class BatchResponse(BaseModel):

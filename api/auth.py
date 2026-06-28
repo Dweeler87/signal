@@ -26,6 +26,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 RATE_LIMITS: dict[str, int] = {
     "free": 100,
     "starter": 10_000,
+    "growth": 40_000,
     "pro": 100_000,
 }
 

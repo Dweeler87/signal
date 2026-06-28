@@ -9,6 +9,7 @@ Filters (all optional, combinable):
   ?saas_vendor=shopify
   ?hosting_provider=AWS
   ?since=2026-01-01T00:00:00Z    (ISO 8601)
+  ?score_min=65                  (push score threshold to ClickHouse; drops low-signal noise)
   ?cursor=<opaque>               (from previous response.next_cursor)
   ?limit=100                     (default 100, max 1000)
 
@@ -37,6 +38,7 @@ RESTRICTED_SIGNAL_TYPES = set()
 TIER_LOOKBACK_DAYS: dict[str, int] = {
     "free": 1,
     "starter": 30,
+    "growth": 60,
     "pro": 90,
 }
 
@@ -62,6 +64,24 @@ _SIGNAL_LABELS: dict[str, str] = {
     "new_apex_domain": "new top-level domain registered",
     "new_subdomain": "new subdomain detected",
 }
+
+# ClickHouse SQL expression that replicates Python compute_score() logic.
+# Used to push score filtering into the database via ?score_min=N.
+_SCORE_SQL = """least(100, multiIf(
+    s.signal_type = 'domain_velocity', 90,
+    s.signal_type = 'geographic_expansion', 85,
+    s.signal_type = 'fresh_domain', 80,
+    s.signal_type = 'wildcard_cert_issued', 70,
+    s.signal_type = 'saas_adoption_detected', 65,
+    s.signal_type = 'infrastructure_expansion', 50,
+    s.signal_type = 'new_apex_domain', 40,
+    s.signal_type = 'new_subdomain', 20,
+    30
+) + multiIf(
+    now() - s.detected_at < 86400, 10,
+    now() - s.detected_at < 604800, 5,
+    0
+))"""
 
 
 def _age_label(age: timedelta) -> tuple[str, int]:
@@ -106,6 +126,7 @@ def list_signals(
     since: datetime | None = Query(default=None, description="ISO 8601 timestamp"),
     cursor: str | None = Query(default=None, description="Pagination cursor from next_cursor"),
     limit: int = Query(default=100, ge=1, le=1000),
+    score_min: int | None = Query(default=None, ge=1, le=100, description="Minimum signal score (1-100) — filters in ClickHouse"),
     key: dict = Depends(authenticated_key),
     ch=Depends(get_ch),
     response: Response = None,
@@ -150,6 +171,10 @@ def list_signals(
         lookback_naive = lookback_cutoff.replace(tzinfo=None)
         effective_since = max(since_naive, lookback_naive)
         params["lookback_cutoff"] = effective_since
+
+    if score_min is not None:
+        conditions.append(f"({_SCORE_SQL}) >= %(score_min)s")
+        params["score_min"] = score_min
 
     # Cursor pagination (detected_at DESC)
     if cursor:

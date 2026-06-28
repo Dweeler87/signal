@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, Response
 
 from api.auth import check_rate_limit
 from api.deps import authenticated_key_no_rl, get_ch, get_redis
-from api.routes.signals import compute_score, compute_score_reason
+from api.routes.signals import _SCORE_SQL, compute_score, compute_score_reason
 from api.schemas import BatchRequest, BatchResponse, SignalOut
 
 router = APIRouter(prefix="/v1/signals", tags=["signals"])
@@ -39,10 +39,13 @@ def batch_signals(
     placeholders = ", ".join(f"%(d{i})s" for i in range(len(domains)))
     domain_params = {f"d{i}": d for i, d in enumerate(domains)}
 
-    type_filter = ""
+    extra_filters = ""
     if body.type:
-        type_filter = "AND s.signal_type = %(sig_type)s"
+        extra_filters += " AND s.signal_type = %(sig_type)s"
         domain_params["sig_type"] = body.type
+    if body.score_min is not None:
+        extra_filters += f" AND ({_SCORE_SQL}) >= %(score_min)s"
+        domain_params["score_min"] = body.score_min
 
     rows = ch.query(
         f"""
@@ -62,7 +65,7 @@ def batch_signals(
             FROM signal.domains FINAL
         ) d ON s.apex_domain = d.domain
         WHERE s.apex_domain IN ({placeholders})
-        {type_filter}
+        {extra_filters}
         ORDER BY s.apex_domain, s.detected_at DESC
         LIMIT %(limit_per_domain)s BY s.apex_domain
         """,

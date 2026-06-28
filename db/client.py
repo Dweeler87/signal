@@ -20,6 +20,11 @@ class Settings(BaseSettings):
     # API server settings
     api_admin_secret: str = ""        # protects POST /v1/keys — set in .env
     resend_api_key: str = ""          # email delivery for self-serve signup
+    # Stripe billing
+    stripe_secret_key: str = ""
+    stripe_webhook_secret: str = ""
+    stripe_starter_price_id: str = ""   # price_xxx from Stripe dashboard
+    stripe_pro_price_id: str = ""
 
     class Config:
         env_file = ".env"

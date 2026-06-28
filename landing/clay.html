@@ -121,7 +121,7 @@
   </table>
 
   <div class="callout">
-    <strong>Tip:</strong> Use <code>data[0].score</code> as a Clay filter column. Score ≥ 70 = high-conviction signal (geographic expansion, wildcard cert, SaaS adoption). Route high-score rows to immediate sequences; lower scores to nurture.
+    <strong>Tip:</strong> Use <code>data[0].score</code> as a Clay filter column, or pass <code>score_min=70</code> to filter at the database level before results are returned. Score ≥ 70 = high-conviction signal (geographic expansion, wildcard cert, SaaS adoption). Route high-score rows to immediate sequences; lower scores to nurture.
   </div>
 
   <!-- STEP 4 -->
@@ -171,13 +171,51 @@ Params:
       <tr><td>industry</td><td>Company industry (e.g. retail, technology, finance)</td></tr>
       <tr><td>hosting_provider</td><td>AWS, Cloudflare, GCP, etc.</td></tr>
       <tr><td>since</td><td>ISO 8601 timestamp — only signals after this time</td></tr>
+      <tr><td>score_min</td><td>Minimum score (1–100) — filter in ClickHouse before results are returned. Use <code>score_min=65</code> to drop low-signal noise.</td></tr>
       <tr><td>limit</td><td>Number of results (default 100, max 1000)</td></tr>
       <tr><td>cursor</td><td>Pagination cursor from previous response</td></tr>
     </tbody>
   </table>
 
   <div class="callout">
-    <strong>Tip:</strong> Use <code>since</code> to only pull signals from the last 7 days: <code>since=2026-06-21T00:00:00Z</code>. Combine with a Clay formula that generates a rolling date to keep your table current.
+    <strong>Tip:</strong> Use <code>since</code> with a rolling Clay formula to only pull new signals each run. Add <code>score_min=65</code> to drop low-signal noise at the database — only high-conviction signals reach your Clay table.
+  </div>
+
+  <!-- EFFICIENT POLLING PATTERN -->
+  <div class="step-badge">Recommended pattern</div>
+  <h2>Watchlist + <code>?since=</code> — the efficient way to poll</h2>
+  <p>The most API-efficient Clay setup: poll for <em>only new signals since your last run</em> for <em>only the accounts you care about</em>. Two params make this work together.</p>
+
+  <p><strong>Step 1 — Add your target accounts to a watchlist</strong> (once, via API):</p>
+  <div class="code-block">POST https://forelight.net/v1/watchlists
+Authorization: Bearer YOUR_API_KEY
+Content-Type: application/json
+
+{ "pattern_type": "apex_domain", "pattern": "acme.com" }</div>
+
+  <p>Once set, every signal query for your key automatically filters to watchlisted accounts — no <code>apex_domain=</code> param needed per row.</p>
+
+  <p><strong>Step 2 — Poll with a rolling <code>?since=</code> timestamp.</strong> In Clay, create a formula column that generates an ISO 8601 timestamp 24 hours in the past:</p>
+  <div class="code-block">Clay formula (Date column → Text):
+  =TEXT(NOW()-1, "yyyy-mm-dd") & "T00:00:00Z"
+
+  Example output: 2026-06-27T00:00:00Z</div>
+
+  <p>Pass this as the <code>since</code> param in your HTTP API enrichment block:</p>
+  <table>
+    <thead><tr><th>Field</th><th>Value</th></tr></thead>
+    <tbody>
+      <tr><td>URL</td><td>https://forelight.net/v1/signals</td></tr>
+      <tr><td>Param: since</td><td>{{Rolling Date}} <em>(your formula column)</em></td></tr>
+      <tr><td>Param: score_min</td><td>65</td></tr>
+      <tr><td>Param: limit</td><td>5</td></tr>
+    </tbody>
+  </table>
+
+  <p>This query costs a single API credit regardless of how many matching signals exist. Running it daily against 500 watchlisted accounts uses 500 credits — well within Starter quota. Combine with <code>score_min=65</code> to eliminate low-signal noise at the database level before the response is returned.</p>
+
+  <div class="callout">
+    <strong>Why this beats per-row domain lookups:</strong> a watchlist query returns only signals for your accounts — no filtering needed in Clay. The <code>?since=</code> window means you only see <em>new</em> signals each run, so you can trigger outreach on first detection rather than re-processing the same signals every day.
   </div>
 
   <!-- BATCH LOOKUP -->
