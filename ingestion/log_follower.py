@@ -194,15 +194,23 @@ async def follow_log(
         follow_redirects=True,
         limits=httpx.Limits(max_connections=20, max_keepalive_connections=10),
     ) as http:
-        saved = await checkpoint.get()
-        if saved is not None:
-            next_index = saved
-            logger.info("resuming", entry_index=next_index)
-        else:
-            tree_size = await get_tree_size(http, log_url)
-            lookback = min(settings.initial_lookback, tree_size)
-            next_index = max(0, tree_size - lookback)
-            logger.info("starting_fresh", tree_size=tree_size, start_index=next_index)
+        # Startup: get initial position with retry so one slow/unavailable log
+        # can't kill the whole asyncio.gather via an uncaught exception.
+        next_index: int | None = None
+        while next_index is None:
+            try:
+                saved = await checkpoint.get()
+                if saved is not None:
+                    next_index = saved
+                    logger.info("resuming", entry_index=next_index)
+                else:
+                    tree_size = await get_tree_size(http, log_url)
+                    lookback = min(settings.initial_lookback, tree_size)
+                    next_index = max(0, tree_size - lookback)
+                    logger.info("starting_fresh", tree_size=tree_size, start_index=next_index)
+            except Exception as exc:
+                logger.warning("startup_error_retrying", error=str(exc))
+                await asyncio.sleep(30)
 
         while True:
             try:
@@ -377,7 +385,8 @@ async def main() -> None:
         for l in active_logs
     ]
     tasks.append(asyncio.create_task(writer(write_queue, stats)))
-    await asyncio.gather(*tasks)
+    # return_exceptions=True so one failing log task doesn't cancel all others
+    await asyncio.gather(*tasks, return_exceptions=True)
 
 
 if __name__ == "__main__":
