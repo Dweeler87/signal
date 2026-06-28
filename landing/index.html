@@ -346,6 +346,14 @@
   </form>
   <p class="signup-note" id="signupNote1">Free tier · 100 requests/day · No credit card · Minutes of lag, not weeks</p>
   <div id="signup-msg"></div>
+  <p class="signup-note" style="margin-top:0.75rem">Already have a key? <a href="/upgrade">Upgrade plan</a> · <a href="#" onclick="toggleReissue(event)">Lost your key?</a></p>
+  <div id="reissue-box" style="display:none;margin-top:1rem">
+    <div style="display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap">
+      <input type="email" id="reissueEmailMain" placeholder="you@company.com" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:0.65rem 1.25rem;border-radius:8px;font-size:0.9rem;width:260px;outline:none" />
+      <button onclick="reissueKey()" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:0.65rem 1.25rem;border-radius:8px;font-size:0.9rem;cursor:pointer">Re-issue key</button>
+    </div>
+    <div id="reissue-msg-main" style="font-size:0.85rem;margin-top:0.6rem;min-height:1.2rem;color:var(--muted)"></div>
+  </div>
 </div>
 
 <!-- LIVE SIGNAL EXAMPLE -->
@@ -708,6 +716,31 @@
       msgEl.textContent = 'Network error. Try again.';
       btnEl.disabled = false;
       btnEl.textContent = origLabel;
+    }
+  }
+
+  function toggleReissue(e) {
+    e.preventDefault();
+    const box = document.getElementById('reissue-box');
+    box.style.display = box.style.display === 'none' ? 'block' : 'none';
+  }
+
+  async function reissueKey() {
+    const email = document.getElementById('reissueEmailMain').value.trim();
+    const msgEl = document.getElementById('reissue-msg-main');
+    if (!email) return;
+    msgEl.textContent = 'Sending…';
+    try {
+      await fetch('/v1/signup/reissue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      msgEl.style.color = 'var(--green)';
+      msgEl.textContent = '✓ If that email has a key, a replacement is on its way.';
+    } catch {
+      msgEl.style.color = '#f87171';
+      msgEl.textContent = 'Network error. Try again.';
     }
   }
 
