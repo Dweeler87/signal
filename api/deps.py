@@ -26,5 +26,6 @@ def authenticated_key(
     """Dependency that validates the API key and enforces rate limits."""
     key_hash = get_key_hash(credentials)
     key_record = lookup_key(ch, key_hash)
-    check_rate_limit(redis, key_hash, key_record["tier"])
+    rl = check_rate_limit(redis, key_hash, key_record["tier"])
+    key_record["_rl"] = rl  # pass rate limit info to route for response headers
     return key_record

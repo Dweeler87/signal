@@ -83,20 +83,40 @@ def lookup_key(ch, key_hash: str) -> dict:
     }
 
 
-def check_rate_limit(redis_client, key_hash: str, tier: str) -> None:
-    """Increment daily counter. Raises 429 if over limit."""
+def check_rate_limit(redis_client, key_hash: str, tier: str) -> dict:
+    """Increment daily counter. Raises 429 if over limit. Returns rate limit info."""
     from datetime import date
-    today = date.today().strftime("%Y%m%d")
-    redis_key = f"signal:rate:{key_hash}:{today}"
+    today = date.today()
+    redis_key = f"signal:rate:{key_hash}:{today.strftime('%Y%m%d')}"
 
     count = redis_client.incr(redis_key)
     if count == 1:
         redis_client.expire(redis_key, 172800)  # 2-day TTL
 
     limit = RATE_LIMITS.get(tier, 100)
+    remaining = max(0, limit - count)
+    reset = _midnight_ts()
+
     if count > limit:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=f"Rate limit exceeded ({limit} requests/day on {tier} tier).",
-            headers={"X-RateLimit-Limit": str(limit), "X-RateLimit-Remaining": "0"},
+            headers={
+                "X-RateLimit-Limit": str(limit),
+                "X-RateLimit-Remaining": "0",
+                "X-RateLimit-Reset": str(reset),
+            },
         )
+
+    return {"limit": limit, "remaining": remaining, "reset": reset}
+
+
+def _midnight_ts() -> int:
+    """Unix timestamp of next UTC midnight."""
+    from datetime import date, datetime, timedelta, timezone
+    tomorrow = datetime.combine(
+        date.today() + timedelta(days=1),
+        datetime.min.time(),
+        tzinfo=timezone.utc,
+    )
+    return int(tomorrow.timestamp())

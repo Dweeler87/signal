@@ -21,7 +21,7 @@ Clay-friendly: flat JSON, no nested objects, consistent field names.
 import base64
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response
 
 from api.deps import authenticated_key, get_ch
 from api.schemas import SignalListResponse, SignalOut
@@ -46,6 +46,7 @@ def list_signals(
     limit: int = Query(default=100, ge=1, le=1000),
     key: dict = Depends(authenticated_key),
     ch=Depends(get_ch),
+    response: Response = None,
 ):
     # Build WHERE clauses with table-qualified column names.
     # s = signals, d = domains (joined for fresh enrichment data).
@@ -190,5 +191,11 @@ def list_signals(
         last_dt = rows[-1][4]
         if hasattr(last_dt, "isoformat"):
             next_cursor = base64.b64encode(last_dt.isoformat().encode()).decode()
+
+    if response is not None:
+        rl = key.get("_rl", {})
+        response.headers["X-RateLimit-Limit"] = str(rl.get("limit", ""))
+        response.headers["X-RateLimit-Remaining"] = str(rl.get("remaining", ""))
+        response.headers["X-RateLimit-Reset"] = str(rl.get("reset", ""))
 
     return SignalListResponse(data=signals_out, next_cursor=next_cursor, total=total)
