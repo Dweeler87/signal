@@ -55,7 +55,7 @@ Unsubscribe: reply with "unsubscribe"
 """
 
     payload = {
-        "from": "Forelight <onboarding@resend.dev>",
+        "from": "Forelight <hello@forelight.net>",
         "to": [email],
         "subject": "Your Forelight API key",
         "text": body_text,
