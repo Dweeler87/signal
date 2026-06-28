@@ -68,9 +68,11 @@
 
 ---
 
-## Phase 5 — Go-to-Market Surface
-- [ ] Landing page (explains signals, free-tier signup)
-- [ ] Free-tier API key self-serve signup flow
-- [ ] Clay-ready example / "bring your own key" walkthrough
-- [ ] Buyer-verification gate stub for phishing-adjacent data
-- [ ] **CHECKPOINT:** founder reviews GTM surface, ready to acquire first customers
+## Phase 5 — Go-to-Market Surface ✅
+- [x] Landing page (explains signals, free-tier signup) — forelight.net
+- [x] Free-tier API key self-serve signup flow (POST /v1/signup + Resend email)
+- [x] Clay-ready example / "bring your own key" walkthrough — forelight.net/clay
+- [x] Buyer-verification gate stub (RESTRICTED_SIGNAL_TYPES wired, currently empty)
+- [x] X-RateLimit-* response headers on all authenticated routes
+- [x] Custom domain — forelight.net with SSL via certbot
+- [x] **CHECKPOINT:** GTM surface live at forelight.net, ready to acquire first customers
