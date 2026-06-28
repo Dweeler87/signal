@@ -71,6 +71,17 @@ server {
     listen 80;
     server_name _;
 
+    # Landing pages — served directly from disk
+    location = / {
+        root /opt/signal/landing;
+        try_files /index.html =404;
+    }
+    location = /clay {
+        root /opt/signal/landing;
+        try_files /clay.html =404;
+    }
+
+    # API + docs — proxied to uvicorn
     location / {
         proxy_pass http://127.0.0.1:8000;
         proxy_set_header Host $host;

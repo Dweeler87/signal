@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Forelight — Clay Integration Guide</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0a0a0f; --surface: #13131a; --border: #1e1e2e;
+      --accent: #6366f1; --green: #22c55e; --text: #e2e8f0; --muted: #64748b;
+      --code-bg: #0d0d14;
+    }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height: 1.6; }
+    a { color: var(--accent); }
+    nav {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 1.25rem 2rem; border-bottom: 1px solid var(--border);
+    }
+    .logo { font-weight: 700; font-size: 1.1rem; letter-spacing: 0.05em; }
+    .logo span { color: var(--accent); }
+
+    .container { max-width: 760px; margin: 0 auto; padding: 3rem 2rem 5rem; }
+    h1 { font-size: 2rem; font-weight: 800; margin-bottom: 0.5rem; letter-spacing: -0.02em; }
+    .lead { color: var(--muted); margin-bottom: 3rem; font-size: 1.05rem; }
+
+    h2 { font-size: 1.15rem; font-weight: 700; margin: 2.5rem 0 0.75rem; }
+    p { color: var(--muted); margin-bottom: 1rem; font-size: 0.95rem; }
+    ul { margin: 0.5rem 0 1rem 1.25rem; color: var(--muted); font-size: 0.95rem; }
+    ul li { margin-bottom: 0.35rem; }
+
+    .step-badge {
+      display: inline-block;
+      background: rgba(99,102,241,0.15);
+      border: 1px solid rgba(99,102,241,0.3);
+      color: var(--accent);
+      font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em;
+      text-transform: uppercase; padding: 0.2rem 0.6rem;
+      border-radius: 100px; margin-bottom: 0.5rem;
+    }
+
+    .code-block {
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: 8px; padding: 1.25rem; font-family: monospace;
+      font-size: 0.82rem; line-height: 1.7; overflow-x: auto;
+      margin: 0.75rem 0 1.25rem; white-space: pre;
+    }
+
+    .callout {
+      background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.2);
+      border-radius: 8px; padding: 1rem 1.25rem; margin: 1.25rem 0;
+      font-size: 0.875rem; color: var(--text);
+    }
+    .callout strong { color: var(--accent); }
+
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin: 1rem 0; }
+    th { text-align: left; padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--border); color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; }
+    td { padding: 0.7rem 0.75rem; border-bottom: 1px solid var(--border); color: var(--muted); }
+    td:first-child { color: var(--text); font-family: monospace; font-size: 0.8rem; }
+
+    footer { border-top: 1px solid var(--border); padding: 2rem; text-align: center; font-size: 0.8rem; color: var(--muted); }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a href="/" style="text-decoration:none;color:var(--text)"><div class="logo">FORE<span>LIGHT</span></div></a>
+  <a href="/docs" style="font-size:0.875rem;color:var(--muted)">API docs →</a>
+</nav>
+
+<div class="container">
+  <h1>Forelight + Clay</h1>
+  <p class="lead">Pull real-time infrastructure signals into any Clay table in under 5 minutes using the HTTP API enrichment block.</p>
+
+  <div class="callout">
+    <strong>Before you start:</strong> you need a Forelight API key. <a href="/">Get your free key →</a>
+  </div>
+
+  <!-- STEP 1 -->
+  <div class="step-badge">Step 1</div>
+  <h2>Create a new Clay table</h2>
+  <p>In Clay, create a new table or open an existing one. You can start with a list of company domains you want to monitor — one domain per row in a "Domain" column.</p>
+
+  <!-- STEP 2 -->
+  <div class="step-badge">Step 2</div>
+  <h2>Add an HTTP API enrichment column</h2>
+  <p>Click <strong>+ Add enrichment</strong> → <strong>HTTP API</strong>. Configure it as follows:</p>
+
+  <table>
+    <thead><tr><th>Field</th><th>Value</th></tr></thead>
+    <tbody>
+      <tr><td>Method</td><td>GET</td></tr>
+      <tr><td>URL</td><td>https://signal-certs.duckdns.org/v1/signals</td></tr>
+      <tr><td>Header: Authorization</td><td>Bearer YOUR_API_KEY</td></tr>
+      <tr><td>Param: apex_domain</td><td>{{Domain}} <em>(your domain column)</em></td></tr>
+      <tr><td>Param: type</td><td>new_apex_domain</td></tr>
+      <tr><td>Param: limit</td><td>10</td></tr>
+    </tbody>
+  </table>
+
+  <p>This returns the 10 most recent signals for each company in your list.</p>
+
+  <!-- STEP 3 -->
+  <div class="step-badge">Step 3</div>
+  <h2>Map the response fields</h2>
+  <p>The API returns a JSON object. Map these paths to Clay columns:</p>
+
+  <table>
+    <thead><tr><th>Clay column name</th><th>JSON path</th></tr></thead>
+    <tbody>
+      <tr><td>Signal Type</td><td>data[0].signal_type</td></tr>
+      <tr><td>Domain</td><td>data[0].domain</td></tr>
+      <tr><td>Detected At</td><td>data[0].detected_at</td></tr>
+      <tr><td>Company Name</td><td>data[0].company_name</td></tr>
+      <tr><td>Industry</td><td>data[0].company_industry</td></tr>
+      <tr><td>SaaS Vendor</td><td>data[0].saas_vendor</td></tr>
+      <tr><td>Hosting Provider</td><td>data[0].hosting_provider</td></tr>
+      <tr><td>Total Signals</td><td>total</td></tr>
+    </tbody>
+  </table>
+
+  <!-- STEP 4 -->
+  <div class="step-badge">Step 4</div>
+  <h2>Filter by signal type (optional)</h2>
+  <p>Use the <code>type</code> query parameter to focus on a specific signal:</p>
+
+  <table>
+    <thead><tr><th>type value</th><th>Use case</th></tr></thead>
+    <tbody>
+      <tr><td>new_apex_domain</td><td>Company just registered a new domain</td></tr>
+      <tr><td>new_subdomain</td><td>Company expanding infrastructure</td></tr>
+      <tr><td>saas_adoption_detected</td><td>Company just adopted a SaaS tool</td></tr>
+      <tr><td>infrastructure_expansion</td><td>Rapid multi-subdomain growth signal</td></tr>
+    </tbody>
+  </table>
+
+  <!-- STEP 5 -->
+  <div class="step-badge">Step 5</div>
+  <h2>Build a trigger: SaaS adoption play</h2>
+  <p>One of the most powerful plays: trigger outreach when a company adopts a SaaS tool that's adjacent to yours.</p>
+  <p>Set up a Clay table with your target accounts. Add an HTTP API column with:</p>
+
+  <div class="code-block">URL: https://signal-certs.duckdns.org/v1/signals
+Params:
+  apex_domain = {{Domain}}
+  type        = saas_adoption_detected
+  saas_vendor = shopify        ← or hubspot, salesforce, vercel, etc.
+  limit       = 1</div>
+
+  <p>If <code>data[0]</code> is populated, this company just adopted that SaaS tool. Route them to your sequence.</p>
+
+  <!-- FULL API REFERENCE -->
+  <h2>Full filter reference</h2>
+  <p>All query parameters are optional and combinable:</p>
+
+  <table>
+    <thead><tr><th>Parameter</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td>apex_domain</td><td>Filter to a specific company domain (e.g. acme.com)</td></tr>
+      <tr><td>domain</td><td>Exact subdomain match</td></tr>
+      <tr><td>type</td><td>Signal type (see above)</td></tr>
+      <tr><td>saas_vendor</td><td>SaaS platform name (Shopify, HubSpot, Salesforce, Vercel, etc.)</td></tr>
+      <tr><td>industry</td><td>Company industry (e.g. retail, technology, finance)</td></tr>
+      <tr><td>hosting_provider</td><td>AWS, Cloudflare, GCP, etc.</td></tr>
+      <tr><td>since</td><td>ISO 8601 timestamp — only signals after this time</td></tr>
+      <tr><td>limit</td><td>Number of results (default 100, max 1000)</td></tr>
+      <tr><td>cursor</td><td>Pagination cursor from previous response</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <strong>Tip:</strong> Use <code>since</code> to only pull signals from the last 7 days: <code>since=2026-06-21T00:00:00Z</code>. Combine with a Clay formula that generates a rolling date to keep your table current.
+  </div>
+
+  <h2>Need help?</h2>
+  <p>Email <a href="mailto:clifton.n.harris@gmail.com">clifton.n.harris@gmail.com</a> or check the <a href="/docs">full API docs</a>.</p>
+</div>
+
+<footer>
+  <p>Forelight — <a href="/">Home</a> · <a href="/docs">API docs</a> · <a href="mailto:clifton.n.harris@gmail.com">Contact</a></p>
+</footer>
+
+</body>
+</html>

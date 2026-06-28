@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Forelight — The earliest buying signal. Infrastructure, not intent.</title>
+  <meta name="description" content="Real-time sales signals from SSL certificate transparency logs. Know when any company launches new infrastructure before anyone else does." />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0f;
+      --surface: #13131a;
+      --border: #1e1e2e;
+      --accent: #6366f1;
+      --accent-dim: #4f52c7;
+      --green: #22c55e;
+      --text: #e2e8f0;
+      --muted: #64748b;
+      --code-bg: #0d0d14;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.6;
+    }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* NAV */
+    nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1.25rem 2rem;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      background: var(--bg);
+      z-index: 100;
+    }
+    .logo { font-weight: 700; font-size: 1.1rem; letter-spacing: 0.05em; color: var(--text); }
+    .logo span { color: var(--accent); }
+    nav ul { list-style: none; display: flex; gap: 2rem; }
+    nav ul li a { color: var(--muted); font-size: 0.9rem; }
+    nav ul li a:hover { color: var(--text); text-decoration: none; }
+    .nav-cta {
+      background: var(--accent);
+      color: #fff !important;
+      padding: 0.5rem 1.25rem;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+    .nav-cta:hover { background: var(--accent-dim); text-decoration: none !important; }
+
+    /* HERO */
+    .hero {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 5rem 2rem 3rem;
+      text-align: center;
+    }
+    .badge {
+      display: inline-block;
+      background: rgba(99,102,241,0.15);
+      border: 1px solid rgba(99,102,241,0.3);
+      color: var(--accent);
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.35rem 0.9rem;
+      border-radius: 100px;
+      margin-bottom: 1.5rem;
+    }
+    h1 {
+      font-size: clamp(2.2rem, 5vw, 3.5rem);
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      margin-bottom: 1.25rem;
+    }
+    h1 em { color: var(--accent); font-style: normal; }
+    .hero-sub {
+      font-size: 1.15rem;
+      color: var(--muted);
+      max-width: 600px;
+      margin: 0 auto 2.5rem;
+    }
+
+    /* SIGNUP FORM */
+    .signup-form {
+      display: flex;
+      gap: 0.75rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 0.75rem;
+    }
+    .signup-form input[type="email"] {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.75rem 1.25rem;
+      border-radius: 8px;
+      font-size: 1rem;
+      width: 300px;
+      outline: none;
+    }
+    .signup-form input[type="email"]:focus { border-color: var(--accent); }
+    .signup-form button {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 0.75rem 1.75rem;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .signup-form button:hover { background: var(--accent-dim); }
+    .signup-form button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .signup-note { font-size: 0.8rem; color: var(--muted); }
+    #signup-msg { font-size: 0.95rem; margin-top: 0.75rem; min-height: 1.5rem; }
+    #signup-msg.success { color: var(--green); }
+    #signup-msg.error { color: #f87171; }
+
+    /* LIVE SIGNAL */
+    .signal-demo {
+      max-width: 720px;
+      margin: 4rem auto;
+      padding: 0 2rem;
+    }
+    .signal-demo h2 { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 1rem; }
+    .code-block {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.5rem;
+      font-family: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+      font-size: 0.82rem;
+      line-height: 1.7;
+      overflow-x: auto;
+      text-align: left;
+    }
+    .k { color: #818cf8; }
+    .s { color: #86efac; }
+    .n { color: #fbbf24; }
+    .p { color: var(--muted); }
+    .live-dot {
+      display: inline-block;
+      width: 7px; height: 7px;
+      background: var(--green);
+      border-radius: 50%;
+      margin-right: 0.5rem;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    /* SECTION */
+    section { max-width: 1000px; margin: 0 auto; padding: 4rem 2rem; }
+    section h2 {
+      font-size: clamp(1.5rem, 3vw, 2rem);
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+      letter-spacing: -0.01em;
+    }
+    section .section-sub { color: var(--muted); margin-bottom: 3rem; max-width: 560px; }
+    hr.divider { border: none; border-top: 1px solid var(--border); margin: 0; }
+
+    /* SIGNAL TYPES */
+    .signal-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+    }
+    .signal-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem 1.5rem;
+    }
+    .signal-card .tag {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 0.5rem;
+    }
+    .signal-card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 0.4rem; }
+    .signal-card p { font-size: 0.85rem; color: var(--muted); }
+
+    /* USE CASES */
+    .use-case-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.25rem;
+    }
+    .use-case-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.5rem;
+    }
+    .use-case-card .icon { font-size: 1.5rem; margin-bottom: 0.75rem; }
+    .use-case-card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 0.4rem; }
+    .use-case-card p { font-size: 0.85rem; color: var(--muted); }
+
+    /* HOW IT WORKS */
+    .steps { display: flex; flex-direction: column; gap: 1.25rem; }
+    .step { display: flex; gap: 1.25rem; align-items: flex-start; }
+    .step-num {
+      flex-shrink: 0;
+      width: 2rem; height: 2rem;
+      background: rgba(99,102,241,0.15);
+      border: 1px solid rgba(99,102,241,0.3);
+      color: var(--accent);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 0.85rem;
+    }
+    .step-body h3 { font-size: 1rem; font-weight: 600; margin-bottom: 0.25rem; }
+    .step-body p { font-size: 0.875rem; color: var(--muted); }
+
+    /* PRICING */
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+    }
+    .pricing-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.75rem;
+    }
+    .pricing-card.featured {
+      border-color: var(--accent);
+      background: rgba(99,102,241,0.05);
+    }
+    .pricing-card .tier { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.5rem; }
+    .pricing-card .price { font-size: 2rem; font-weight: 800; margin-bottom: 0.25rem; }
+    .pricing-card .price span { font-size: 1rem; font-weight: 400; color: var(--muted); }
+    .pricing-card .price-sub { font-size: 0.8rem; color: var(--muted); margin-bottom: 1.25rem; }
+    .pricing-card ul { list-style: none; display: flex; flex-direction: column; gap: 0.5rem; }
+    .pricing-card ul li { font-size: 0.85rem; color: var(--muted); padding-left: 1.25rem; position: relative; }
+    .pricing-card ul li::before { content: "✓"; position: absolute; left: 0; color: var(--green); font-weight: 700; }
+
+    /* VS */
+    .vs-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+    }
+    .vs-table th {
+      text-align: left;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border);
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .vs-table td {
+      padding: 0.875rem 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .vs-table tr:last-child td { border-bottom: none; }
+    .vs-table .check { color: var(--green); font-weight: 700; }
+    .vs-table .cross { color: var(--muted); }
+    .vs-table .signal-col { color: var(--accent); font-weight: 600; }
+
+    /* FOOTER */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 2rem;
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    footer a { color: var(--muted); }
+
+    /* CTA BOTTOM */
+    .cta-bottom {
+      text-align: center;
+      padding: 5rem 2rem;
+      background: linear-gradient(to bottom, transparent, rgba(99,102,241,0.05));
+    }
+    .cta-bottom h2 { font-size: clamp(1.5rem, 3vw, 2.25rem); font-weight: 700; margin-bottom: 0.75rem; }
+    .cta-bottom p { color: var(--muted); margin-bottom: 2rem; }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">FORE<span>LIGHT</span></div>
+  <ul>
+    <li><a href="#signals">Signals</a></li>
+    <li><a href="#how">How it works</a></li>
+    <li><a href="#pricing">Pricing</a></li>
+    <li><a href="/clay">Clay guide</a></li>
+    <li><a href="/docs">API docs</a></li>
+    <li><a href="#signup" class="nav-cta">Get free key</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<div class="hero" id="signup">
+  <div class="badge"><span class="live-dot"></span>Live — monitoring CT logs in real time</div>
+  <h1>The earliest buying signal.<br><em>Infrastructure, not intent.</em></h1>
+  <p class="hero-sub">
+    Every SSL certificate issued on the internet is public by law (RFC 6962).
+    Forelight reads them all — in real time — and delivers structured sales signals
+    the moment a company launches new infrastructure.
+  </p>
+
+  <form class="signup-form" id="signupForm">
+    <input type="email" id="emailInput" placeholder="you@company.com" required autocomplete="email" />
+    <button type="submit" id="signupBtn">Get free API key</button>
+  </form>
+  <p class="signup-note">Free tier · 100 requests/day · No credit card</p>
+  <div id="signup-msg"></div>
+</div>
+
+<!-- LIVE SIGNAL EXAMPLE -->
+<div class="signal-demo">
+  <h2><span class="live-dot"></span>Example signal — fired within minutes of cert issuance</h2>
+  <div class="code-block"><pre>{
+  <span class="k">"signal_type"</span><span class="p">:</span> <span class="s">"saas_adoption_detected"</span><span class="p">,</span>
+  <span class="k">"domain"</span><span class="p">:</span>      <span class="s">"store.acmecorp.com.myshopify.com"</span><span class="p">,</span>
+  <span class="k">"apex_domain"</span><span class="p">:</span> <span class="s">"acmecorp.com"</span><span class="p">,</span>
+  <span class="k">"detected_at"</span><span class="p">:</span> <span class="s">"2026-06-28T09:14:02Z"</span><span class="p">,</span>
+  <span class="k">"saas_vendor"</span><span class="p">:</span> <span class="s">"Shopify"</span><span class="p">,</span>
+  <span class="k">"company_name"</span><span class="p">:</span>     <span class="s">"Acme Corp"</span><span class="p">,</span>
+  <span class="k">"company_industry"</span><span class="p">:</span> <span class="s">"retail"</span><span class="p">,</span>
+  <span class="k">"hosting_provider"</span><span class="p">:</span> <span class="s">"Shopify"</span><span class="p">,</span>
+  <span class="k">"signal_id"</span><span class="p">:</span>   <span class="s">"a3f1c2e0-..."</span>
+}</pre></div>
+</div>
+
+<hr class="divider" />
+
+<!-- SIGNAL TYPES -->
+<section id="signals">
+  <h2>Four signal types. One API.</h2>
+  <p class="section-sub">Every signal is timestamped to the minute and enriched with company data — not a probability score, a deterministic event.</p>
+  <div class="signal-grid">
+    <div class="signal-card">
+      <div class="tag">new_apex_domain</div>
+      <h3>New domain registered</h3>
+      <p>A company just registered a new top-level domain — greenfield opportunity or competitive displacement play.</p>
+    </div>
+    <div class="signal-card">
+      <div class="tag">new_subdomain</div>
+      <h3>Infrastructure expansion</h3>
+      <p>A company is standing up new subdomains — product launches, regional rollouts, new services.</p>
+    </div>
+    <div class="signal-card">
+      <div class="tag">saas_adoption_detected</div>
+      <h3>SaaS adoption</h3>
+      <p>A company just connected Shopify, HubSpot, Salesforce, Vercel, or 40+ other platforms. Detected from cert patterns.</p>
+    </div>
+    <div class="signal-card">
+      <div class="tag">infrastructure_expansion</div>
+      <h3>Rapid growth signal</h3>
+      <p>Multiple new subdomains in 24 hours — a strong leading indicator of hiring, product launches, or geographic expansion.</p>
+    </div>
+  </div>
+</section>
+
+<hr class="divider" />
+
+<!-- USE CASES -->
+<section id="use-cases">
+  <h2>Built for teams that move on signals.</h2>
+  <p class="section-sub">Forelight delivers via REST API and webhooks — pipe it into Clay, HubSpot, Salesforce, or your own stack.</p>
+  <div class="use-case-grid">
+    <div class="use-case-card">
+      <div class="icon">⚡</div>
+      <h3>GTM &amp; RevOps platforms</h3>
+      <p>Add a net-new, differentiated signal type to your data offering. Forelight is a wholesale feed your customers don't have anywhere else.</p>
+    </div>
+    <div class="use-case-card">
+      <div class="icon">🎯</div>
+      <h3>B2B sales teams</h3>
+      <p>Trigger outreach the day a prospect launches new infrastructure — before competitors know. "New Shopify store" is a buying window, not a cold call.</p>
+    </div>
+    <div class="use-case-card">
+      <div class="icon">🔒</div>
+      <h3>Attack surface management</h3>
+      <p>Real-time certificate events for your domain namespace — catch shadow IT, unauthorized certs, and lookalike domains within minutes.</p>
+    </div>
+    <div class="use-case-card">
+      <div class="icon">🔍</div>
+      <h3>Competitive intelligence</h3>
+      <p>Monitor competitors' subdomains as they appear — regional rollouts, new products, and staging environments visible before launch.</p>
+    </div>
+    <div class="use-case-card">
+      <div class="icon">📈</div>
+      <h3>Staffing &amp; recruiting</h3>
+      <p>Infrastructure expansion is a 20–30 day leading indicator of hiring. Reach the hiring manager before the job is posted.</p>
+    </div>
+    <div class="use-case-card">
+      <div class="icon">💼</div>
+      <h3>Venture &amp; PE</h3>
+      <p>Track portfolio companies and sourcing targets by infrastructure activity — traction without waiting for press releases.</p>
+    </div>
+  </div>
+</section>
+
+<hr class="divider" />
+
+<!-- HOW IT WORKS -->
+<section id="how">
+  <h2>How it works.</h2>
+  <p class="section-sub">Forelight runs its own Certificate Transparency log follower — no scraping, no polling, no lag.</p>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <h3>CT logs emit every certificate in real time</h3>
+        <p>Every publicly trusted CA must log certificates under RFC 6962. Forelight reads those logs continuously — every cert issued anywhere on the internet appears within minutes.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <h3>We parse, enrich, and type each event</h3>
+        <p>Raw cert metadata → domain extraction → DNS/ASN/hosting enrichment → SaaS vendor detection → firmographic data (company name, industry, size). Then classified into one of four signal types.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <h3>Deliver via API or webhook</h3>
+        <p>Pull on demand with filters (industry, SaaS vendor, hosting provider, since timestamp) or push to your endpoint via webhook. Clay-ready flat JSON — no nested objects.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider" />
+
+<!-- VS TABLE -->
+<section>
+  <h2>Why not just use intent data?</h2>
+  <p class="section-sub">Existing intent data is lagged, probabilistic, and largely the same Bombora co-op resold many times. Forelight is different by design.</p>
+  <table class="vs-table">
+    <thead>
+      <tr>
+        <th>Property</th>
+        <th class="signal-col">Forelight</th>
+        <th>3rd-party intent (Bombora/6sense)</th>
+        <th>Technographics (BuiltWith)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Signal lag</td>
+        <td class="signal-col check">Minutes</td>
+        <td class="cross">24–48 hours</td>
+        <td class="cross">Days to weeks (crawl schedule)</td>
+      </tr>
+      <tr>
+        <td>Deterministic</td>
+        <td class="signal-col check">Yes — cert either issued or not</td>
+        <td class="cross">No — probability score</td>
+        <td class="cross">No — inferred from crawl</td>
+      </tr>
+      <tr>
+        <td>Event-level</td>
+        <td class="signal-col check">Yes — timestamped to the minute</td>
+        <td class="cross">Company-level only</td>
+        <td class="cross">Install state, not adoption event</td>
+      </tr>
+      <tr>
+        <td>Data source</td>
+        <td class="signal-col check">Public by law (RFC 6962)</td>
+        <td class="cross">Shared co-op (same feed, many vendors)</td>
+        <td class="cross">Web crawl</td>
+      </tr>
+      <tr>
+        <td>SaaS adoption detection</td>
+        <td class="signal-col check">Real-time, at adoption</td>
+        <td class="cross">Not available</td>
+        <td class="cross">Stale installs</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<hr class="divider" />
+
+<!-- PRICING -->
+<section id="pricing">
+  <h2>Simple, usage-based pricing.</h2>
+  <p class="section-sub">Start free. Scale when you have signal volume worth paying for.</p>
+  <div class="pricing-grid">
+    <div class="pricing-card">
+      <div class="tier">Free</div>
+      <div class="price">$0</div>
+      <div class="price-sub">No credit card required</div>
+      <ul>
+        <li>100 API requests / day</li>
+        <li>All 4 signal types</li>
+        <li>Full enrichment data</li>
+        <li>Cursor pagination</li>
+        <li>Community support</li>
+      </ul>
+    </div>
+    <div class="pricing-card featured">
+      <div class="tier">Starter</div>
+      <div class="price">$99<span>/mo</span></div>
+      <div class="price-sub">~3,300 requests/day</div>
+      <ul>
+        <li>10,000 API requests / day</li>
+        <li>Webhook delivery</li>
+        <li>Watchlist filtering</li>
+        <li>Email support</li>
+        <li>Clay &amp; HubSpot guides</li>
+      </ul>
+    </div>
+    <div class="pricing-card">
+      <div class="tier">Pro</div>
+      <div class="price">$499<span>/mo</span></div>
+      <div class="price-sub">~33,000 requests/day</div>
+      <ul>
+        <li>100,000 API requests / day</li>
+        <li>Webhook delivery</li>
+        <li>Watchlist filtering</li>
+        <li>Priority support</li>
+        <li>Custom signal types</li>
+      </ul>
+    </div>
+    <div class="pricing-card">
+      <div class="tier">Enterprise / Wholesale</div>
+      <div class="price" style="font-size:1.25rem;padding-top:0.5rem;">Let's talk</div>
+      <div class="price-sub">Reseller &amp; embedded pricing</div>
+      <ul>
+        <li>Unlimited volume</li>
+        <li>SLA &amp; dedicated support</li>
+        <li>White-label / embedded</li>
+        <li>Custom enrichment</li>
+        <li>Co-marketing opportunities</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- CTA BOTTOM -->
+<div class="cta-bottom">
+  <h2>Start monitoring the internet in minutes.</h2>
+  <p>Free tier · No credit card · Full API access</p>
+  <form class="signup-form" id="signupForm2">
+    <input type="email" id="emailInput2" placeholder="you@company.com" required autocomplete="email" />
+    <button type="submit" id="signupBtn2">Get free API key</button>
+  </form>
+  <div id="signup-msg2"></div>
+</div>
+
+<footer>
+  <p>
+    Forelight &mdash; Real-time intelligence from Certificate Transparency logs &mdash;
+    <a href="/docs">API docs</a> &middot;
+    <a href="/clay">Clay guide</a> &middot;
+    <a href="mailto:clifton.n.harris@gmail.com">Contact</a>
+  </p>
+  <p style="margin-top:0.5rem;">Certificates are public by law under RFC 6962. We run our own CT log follower — no scraping, no ToS violations.</p>
+</footer>
+
+<script>
+  async function handleSignup(email, msgEl, btnEl) {
+    if (!email) return;
+    btnEl.disabled = true;
+    btnEl.textContent = 'Sending...';
+    msgEl.className = '';
+    msgEl.textContent = '';
+
+    try {
+      const res = await fetch('/v1/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        msgEl.className = 'success';
+        msgEl.textContent = '✓ Check your email — your API key is on its way.';
+        btnEl.textContent = 'Sent!';
+      } else if (res.status === 409) {
+        msgEl.className = 'error';
+        msgEl.textContent = 'An API key was already issued to that email. Check your inbox.';
+        btnEl.disabled = false;
+        btnEl.textContent = 'Get free API key';
+      } else {
+        msgEl.className = 'error';
+        msgEl.textContent = data.detail || 'Something went wrong. Try again.';
+        btnEl.disabled = false;
+        btnEl.textContent = 'Get free API key';
+      }
+    } catch (e) {
+      msgEl.className = 'error';
+      msgEl.textContent = 'Network error. Try again.';
+      btnEl.disabled = false;
+      btnEl.textContent = 'Get free API key';
+    }
+  }
+
+  document.getElementById('signupForm').addEventListener('submit', e => {
+    e.preventDefault();
+    handleSignup(
+      document.getElementById('emailInput').value.trim(),
+      document.getElementById('signup-msg'),
+      document.getElementById('signupBtn'),
+    );
+  });
+
+  document.getElementById('signupForm2').addEventListener('submit', e => {
+    e.preventDefault();
+    handleSignup(
+      document.getElementById('emailInput2').value.trim(),
+      document.getElementById('signup-msg2'),
+      document.getElementById('signupBtn2'),
+    );
+  });
+</script>
+</body>
+</html>

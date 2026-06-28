@@ -1,6 +1,8 @@
 # Secrets
 .env
 *.env.local
+signal_key
+signal_key.pub
 
 # Python
 __pycache__/

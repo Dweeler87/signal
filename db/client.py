@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     enrichment_poll_interval: int = 5  # seconds between polls
     # API server settings
     api_admin_secret: str = ""        # protects POST /v1/keys — set in .env
+    resend_api_key: str = ""          # email delivery for self-serve signup
 
     class Config:
         env_file = ".env"
