@@ -109,23 +109,36 @@ async def stripe_webhook(request: Request, ch=Depends(get_ch)):
     obj = event["data"]["object"]
     event_type = event["type"]
 
+    # Stripe SDK v10+ returns typed objects; tests pass plain dicts — handle both.
+    def _get(o, key, default=None):
+        if isinstance(o, dict):
+            return o.get(key, default)
+        return getattr(o, key, default)
+
+    def _meta(o) -> dict:
+        m = _get(o, "metadata") or {}
+        return dict(m)
+
     if event_type in ("customer.subscription.created", "customer.subscription.updated"):
-        key_hash = (obj.get("metadata") or {}).get("key_hash")
+        key_hash = _meta(obj).get("key_hash")
         if not key_hash:
             return {"status": "ignored", "reason": "no key_hash in metadata"}
 
         # Determine tier from the first subscription item's price
         try:
-            price_id = obj["items"]["data"][0]["price"]["id"]
-        except (KeyError, IndexError):
+            if isinstance(obj, dict):
+                price_id = obj["items"]["data"][0]["price"]["id"]
+            else:
+                price_id = obj.items.data[0].price.id
+        except (AttributeError, IndexError, KeyError):
             return {"status": "ignored", "reason": "no price on subscription"}
 
         new_tier = _price_to_tier(price_id)
         if not new_tier:
             return {"status": "ignored", "reason": f"unknown price_id {price_id}"}
 
-        sub_id = obj.get("id", "")
-        customer_id = obj.get("customer", "")
+        sub_id = _get(obj, "id", "") or ""
+        customer_id = _get(obj, "customer", "") or ""
 
         ch.command(
             f"""
@@ -146,7 +159,7 @@ async def stripe_webhook(request: Request, ch=Depends(get_ch)):
         return {"status": "updated", "tier": new_tier, "key_hash": key_hash[:8] + "..."}
 
     if event_type == "customer.subscription.deleted":
-        key_hash = (obj.get("metadata") or {}).get("key_hash")
+        key_hash = _meta(obj).get("key_hash")
         if not key_hash:
             return {"status": "ignored", "reason": "no key_hash in metadata"}
 
