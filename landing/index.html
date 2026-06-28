@@ -356,21 +356,68 @@
   </div>
 </div>
 
-<!-- LIVE SIGNAL EXAMPLE -->
+<!-- SIGNAL FEED SAMPLE -->
 <div class="signal-demo">
-  <h2><span class="live-dot"></span>Example signal — fired within minutes of cert issuance</h2>
-  <div class="code-block"><pre>{
-  <span class="k">"signal_type"</span><span class="p">:</span>   <span class="s">"saas_adoption_detected"</span><span class="p">,</span>
-  <span class="k">"domain"</span><span class="p">:</span>        <span class="s">"store.acmecorp.com.myshopify.com"</span><span class="p">,</span>
-  <span class="k">"apex_domain"</span><span class="p">:</span>   <span class="s">"acmecorp.com"</span><span class="p">,</span>
-  <span class="k">"detected_at"</span><span class="p">:</span>   <span class="s">"2026-06-28T09:14:02Z"</span><span class="p">,</span>
-  <span class="k">"saas_vendor"</span><span class="p">:</span>   <span class="s">"Shopify"</span><span class="p">,</span>
-  <span class="k">"company_name"</span><span class="p">:</span>  <span class="s">"Acme Corp"</span><span class="p">,</span>
-  <span class="k">"company_industry"</span><span class="p">:</span> <span class="s">"retail"</span><span class="p">,</span>
-  <span class="k">"score"</span><span class="p">:</span>         <span class="n">75</span><span class="p">,</span>
-  <span class="k">"score_reason"</span><span class="p">:</span>  <span class="s">"SaaS platform adoption detected at cert issuance; detected 2h ago (score: 65 +10 recency)"</span><span class="p">,</span>
-  <span class="k">"signal_id"</span><span class="p">:</span>     <span class="s">"a3f1c2e0-..."</span>
-}</pre></div>
+  <h2><span class="live-dot"></span>Sample signals — this is what lands in your API response</h2>
+
+  <div style="overflow-x:auto;border:1px solid var(--border);border-radius:10px;margin-top:1rem">
+    <table style="width:100%;border-collapse:collapse;font-size:0.82rem">
+      <thead>
+        <tr style="border-bottom:1px solid var(--border)">
+          <th style="padding:0.65rem 1rem;text-align:left;color:var(--muted);font-size:0.7rem;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;white-space:nowrap">Score</th>
+          <th style="padding:0.65rem 1rem;text-align:left;color:var(--muted);font-size:0.7rem;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;white-space:nowrap">Signal type</th>
+          <th style="padding:0.65rem 1rem;text-align:left;color:var(--muted);font-size:0.7rem;letter-spacing:0.08em;text-transform:uppercase;font-weight:600">Company</th>
+          <th style="padding:0.65rem 1rem;text-align:left;color:var(--muted);font-size:0.7rem;letter-spacing:0.08em;text-transform:uppercase;font-weight:600">Detail</th>
+          <th style="padding:0.65rem 1rem;text-align:left;color:var(--muted);font-size:0.7rem;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;white-space:nowrap">Detected</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:0.75rem 1rem"><span style="background:rgba(34,197,94,0.15);color:#22c55e;border:1px solid rgba(34,197,94,0.3);padding:0.2rem 0.5rem;border-radius:100px;font-weight:700;font-size:0.78rem">100</span></td>
+          <td style="padding:0.75rem 1rem;color:var(--accent);font-family:monospace;white-space:nowrap">domain_velocity</td>
+          <td style="padding:0.75rem 1rem"><div style="color:var(--text);font-weight:500">Meridian Health</div><div style="color:var(--muted);font-size:0.75rem">meridianhealth.com</div></td>
+          <td style="padding:0.75rem 1rem;color:var(--muted)">4 new domains in 7 days — acquisition or rebrand</td>
+          <td style="padding:0.75rem 1rem;color:var(--muted);white-space:nowrap">18 min ago</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:0.75rem 1rem"><span style="background:rgba(34,197,94,0.15);color:#22c55e;border:1px solid rgba(34,197,94,0.3);padding:0.2rem 0.5rem;border-radius:100px;font-weight:700;font-size:0.78rem">95</span></td>
+          <td style="padding:0.75rem 1rem;color:var(--accent);font-family:monospace;white-space:nowrap">geographic_expansion</td>
+          <td style="padding:0.75rem 1rem"><div style="color:var(--text);font-weight:500">Stackline Inc</div><div style="color:var(--muted);font-size:0.75rem">stackline.de</div></td>
+          <td style="padding:0.75rem 1rem;color:var(--muted)">Country-code domain — entering German market</td>
+          <td style="padding:0.75rem 1rem;color:var(--muted);white-space:nowrap">1h ago</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:0.75rem 1rem"><span style="background:rgba(34,197,94,0.15);color:#22c55e;border:1px solid rgba(34,197,94,0.3);padding:0.2rem 0.5rem;border-radius:100px;font-weight:700;font-size:0.78rem">80</span></td>
+          <td style="padding:0.75rem 1rem;color:var(--accent);font-family:monospace;white-space:nowrap">fresh_domain</td>
+          <td style="padding:0.75rem 1rem"><div style="color:var(--text);font-weight:500">Launchify</div><div style="color:var(--muted);font-size:0.75rem">launchify.io</div></td>
+          <td style="padding:0.75rem 1rem;color:var(--muted)">Domain registered 6 days before first cert — new company</td>
+          <td style="padding:0.75rem 1rem;color:var(--muted);white-space:nowrap">2h ago</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:0.75rem 1rem"><span style="background:rgba(99,102,241,0.15);color:#818cf8;border:1px solid rgba(99,102,241,0.3);padding:0.2rem 0.5rem;border-radius:100px;font-weight:700;font-size:0.78rem">75</span></td>
+          <td style="padding:0.75rem 1rem;color:var(--accent);font-family:monospace;white-space:nowrap">saas_adoption_detected</td>
+          <td style="padding:0.75rem 1rem"><div style="color:var(--text);font-weight:500">Boutique Brands Co</div><div style="color:var(--muted);font-size:0.75rem">boutiquebrandsco.com</div></td>
+          <td style="padding:0.75rem 1rem;color:var(--muted)">Adopted <strong style="color:var(--text)">Shopify</strong> — retail, 51–200 employees</td>
+          <td style="padding:0.75rem 1rem;color:var(--muted);white-space:nowrap">3h ago</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:0.75rem 1rem"><span style="background:rgba(99,102,241,0.15);color:#818cf8;border:1px solid rgba(99,102,241,0.3);padding:0.2rem 0.5rem;border-radius:100px;font-weight:700;font-size:0.78rem">75</span></td>
+          <td style="padding:0.75rem 1rem;color:var(--accent);font-family:monospace;white-space:nowrap">saas_adoption_detected</td>
+          <td style="padding:0.75rem 1rem"><div style="color:var(--text);font-weight:500">NovaTech Solutions</div><div style="color:var(--muted);font-size:0.75rem">novatech.io</div></td>
+          <td style="padding:0.75rem 1rem;color:var(--muted)">Adopted <strong style="color:var(--text)">HubSpot</strong> — technology, 11–50 employees</td>
+          <td style="padding:0.75rem 1rem;color:var(--muted);white-space:nowrap">4h ago</td>
+        </tr>
+        <tr>
+          <td style="padding:0.75rem 1rem"><span style="background:rgba(251,191,36,0.1);color:#fbbf24;border:1px solid rgba(251,191,36,0.3);padding:0.2rem 0.5rem;border-radius:100px;font-weight:700;font-size:0.78rem">60</span></td>
+          <td style="padding:0.75rem 1rem;color:var(--accent);font-family:monospace;white-space:nowrap">wildcard_cert_issued</td>
+          <td style="padding:0.75rem 1rem"><div style="color:var(--text);font-weight:500">GrowthStack</div><div style="color:var(--muted);font-size:0.75rem">*.api.growthstack.com</div></td>
+          <td style="padding:0.75rem 1rem;color:var(--muted)">Wildcard cert — dynamic subdomain build-out</td>
+          <td style="padding:0.75rem 1rem;color:var(--muted);white-space:nowrap">6h ago</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p style="font-size:0.75rem;color:var(--muted);margin-top:0.75rem;text-align:right">Representative sample · Each row is one API call result · Scores include recency boost</p>
 </div>
 
 <hr class="divider" />
