@@ -5,7 +5,7 @@ from fastapi import Depends, Security
 from fastapi.security import HTTPAuthorizationCredentials
 
 import clickhouse_connect
-from api.auth import bearer_scheme, check_rate_limit, get_key_hash, lookup_key
+from api.auth import bearer_scheme, check_rate_limit, get_key_hash, lookup_key, rate_limit_account
 from db.client import get_client, get_settings
 
 
@@ -34,6 +34,6 @@ def authenticated_key(
 ) -> dict:
     """Dependency that validates the API key and enforces rate limits (cost=1)."""
     key_record, key_hash = auth
-    rl = check_rate_limit(redis, key_hash, key_record["tier"])
+    rl = check_rate_limit(redis, rate_limit_account(key_record, key_hash), key_record["tier"])
     key_record["_rl"] = rl  # pass rate limit info to route for response headers
     return key_record

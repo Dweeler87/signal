@@ -9,7 +9,7 @@ Clay use case: enrich a table of companies without 1-per-row API calls.
 
 from fastapi import APIRouter, Depends, Response
 
-from api.auth import check_rate_limit
+from api.auth import check_rate_limit, rate_limit_account
 from api.deps import authenticated_key_no_rl, get_ch, get_redis
 from api.routes.signals import _SCORE_SQL, compute_score, compute_score_reason
 from api.schemas import BatchRequest, BatchResponse, SignalOut
@@ -29,7 +29,7 @@ def batch_signals(
     tier = key_record.get("tier", "free")
 
     # Rate limit cost = number of domains requested
-    rl = check_rate_limit(redis, key_hash, tier, cost=len(body.domains))
+    rl = check_rate_limit(redis, rate_limit_account(key_record, key_hash), tier, cost=len(body.domains))
     if response is not None:
         response.headers["X-RateLimit-Limit"] = str(rl["limit"])
         response.headers["X-RateLimit-Remaining"] = str(rl["remaining"])

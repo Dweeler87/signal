@@ -64,14 +64,14 @@ def get_key_hash(credentials: HTTPAuthorizationCredentials | None) -> str:
 def lookup_key(ch, key_hash: str) -> dict:
     """Look up key record. Raises 401 if not found or revoked."""
     rows = ch.query(
-        "SELECT tier, buyer_verified, revoked, webhook_url, webhook_secret FROM signal.api_keys WHERE key_hash = %(h)s LIMIT 1",
+        "SELECT tier, buyer_verified, revoked, webhook_url, webhook_secret, label FROM signal.api_keys WHERE key_hash = %(h)s LIMIT 1",
         parameters={"h": key_hash},
     ).result_rows
 
     if not rows:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key.")
 
-    tier, buyer_verified, revoked, webhook_url, webhook_secret = rows[0]
+    tier, buyer_verified, revoked, webhook_url, webhook_secret, label = rows[0]
     if revoked:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="API key revoked.")
 
@@ -81,7 +81,20 @@ def lookup_key(ch, key_hash: str) -> dict:
         "buyer_verified": bool(buyer_verified),
         "webhook_url": webhook_url,
         "webhook_secret": webhook_secret,
+        "label": label or "",
     }
+
+
+def rate_limit_account(key_record: dict, key_hash: str) -> str:
+    """Return the identifier used as the rate-limit bucket.
+
+    Self-serve keys use their signup label (signup:email) so rotating a key
+    via /reissue doesn't reset the daily quota. Admin keys fall back to key_hash.
+    """
+    label = key_record.get("label", "")
+    if label.startswith("signup:"):
+        return label
+    return key_hash
 
 
 def check_rate_limit(redis_client, key_hash: str, tier: str, cost: int = 1) -> dict:
