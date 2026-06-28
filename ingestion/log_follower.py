@@ -73,7 +73,7 @@ LOG_REGISTRY: list[dict] = [
         "log_id": "argon2026h2",
         "operator": "google",
         "url": "https://ct.googleapis.com/logs/us1/argon2026h2/",
-        "enabled": False,  # H2 — enable July 2026
+        "enabled": True,
     },
     {
         "log_id": "xenon2026h1",
@@ -85,7 +85,7 @@ LOG_REGISTRY: list[dict] = [
         "log_id": "xenon2026h2",
         "operator": "google",
         "url": "https://ct.googleapis.com/logs/eu1/xenon2026h2/",
-        "enabled": False,  # H2 — enable July 2026
+        "enabled": True,
     },
     # ── Let's Encrypt ────────────────────────────────────────────────────────
     # oak2026h1 and oak2026h2 are retired — no usable LE log currently available
@@ -107,7 +107,7 @@ LOG_REGISTRY: list[dict] = [
         "log_id": "wyvern2026h2",
         "operator": "digicert",
         "url": "https://wyvern.ct.digicert.com/2026h2/",
-        "enabled": False,  # H2 — enable July 2026
+        "enabled": True,
     },
     {
         "log_id": "sphinx2026h1",
@@ -119,7 +119,7 @@ LOG_REGISTRY: list[dict] = [
         "log_id": "sphinx2026h2",
         "operator": "digicert",
         "url": "https://sphinx.ct.digicert.com/2026h2/",
-        "enabled": False,  # H2 — enable July 2026
+        "enabled": True,
     },
     # ── Sectigo ──────────────────────────────────────────────────────────────
     # Sectigo moved from ct.comodo.com to ct.sectigo.com; usable logs are elephant/tiger
@@ -134,7 +134,7 @@ LOG_REGISTRY: list[dict] = [
         "log_id": "elephant2026h2",
         "operator": "sectigo",
         "url": "https://elephant2026h2.ct.sectigo.com/",
-        "enabled": False,  # H2 — enable July 2026
+        "enabled": True,
     },
     {
         "log_id": "tiger2026h1",
@@ -146,7 +146,7 @@ LOG_REGISTRY: list[dict] = [
         "log_id": "tiger2026h2",
         "operator": "sectigo",
         "url": "https://tiger2026h2.ct.sectigo.com/",
-        "enabled": False,  # H2 — enable July 2026
+        "enabled": True,
     },
     # ── TrustAsia ────────────────────────────────────────────────────────────
     {
