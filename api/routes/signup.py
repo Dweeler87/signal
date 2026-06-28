@@ -43,11 +43,11 @@ This key gives you 100 API requests per day. Keep it secret — it cannot be ret
 
 Quick start:
 
-  curl -s "https://signal-certs.duckdns.org/v1/signals?limit=5" \\
+  curl -s "https://forelight.io/v1/signals?limit=5" \\
     -H "Authorization: Bearer {raw_key}"
 
-Full docs: https://signal-certs.duckdns.org/docs
-Clay walkthrough: https://signal-certs.duckdns.org/clay
+Full docs: https://forelight.io/docs
+Clay walkthrough: https://forelight.io/clay
 
 ---
 Forelight — The earliest buying signal. Infrastructure, not intent.
@@ -124,5 +124,5 @@ async def signup(body: SignupRequest, ch=Depends(get_ch)):
 
     return {
         "message": "Check your email for your API key.",
-        "docs": "https://signal-certs.duckdns.org/docs",
+        "docs": "https://forelight.io/docs",
     }
