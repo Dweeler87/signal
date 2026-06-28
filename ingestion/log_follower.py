@@ -66,78 +66,76 @@ LOG_REGISTRY: list[dict] = [
         "log_id": "xenon2025h2",
         "operator": "google",
         "url": "https://ct.googleapis.com/logs/us1/xenon2025h2/",
-        "enabled": False,
+        "enabled": False,  # 2025 H2 — historical only
     },
     {
         "log_id": "xenon2026h1",
         "operator": "google",
         "url": "https://ct.googleapis.com/logs/us1/xenon2026h1/",
-        "enabled": False,
+        "enabled": True,
     },
     {
         "log_id": "argon2026h1",
         "operator": "google",
-        "url": "https://ct.googleapis.com/logs/us1/argon2026h1/",
-        "enabled": False,
+        "url": "https://ct.googleapis.com/logs/eu1/argon2026h1/",
+        "enabled": True,
     },
     # ── Let's Encrypt ────────────────────────────────────────────────────────
-    # Note: oak.ct.letsencrypt.org may fail on networks with strict DNSSEC.
-    # Works fine on Hetzner. Enable after verifying DNS resolution on the box.
     {
         "log_id": "oak2025h2",
         "operator": "letsencrypt",
         "url": "https://oak.ct.letsencrypt.org/2025h2/",
-        "enabled": False,
+        "enabled": False,  # 2025 H2 — historical only
     },
     {
         "log_id": "oak2026",
         "operator": "letsencrypt",
         "url": "https://oak.ct.letsencrypt.org/2026/",
-        "enabled": False,
+        "enabled": True,
     },
     # ── DigiCert ─────────────────────────────────────────────────────────────
     {
         "log_id": "yeti2025h2",
         "operator": "digicert",
         "url": "https://yeti2025h2.ct.digicert.com/log/",
-        "enabled": False,
+        "enabled": False,  # 2025 H2 — historical only
     },
     {
         "log_id": "yeti2026h1",
         "operator": "digicert",
         "url": "https://yeti2026h1.ct.digicert.com/log/",
-        "enabled": False,
+        "enabled": True,
     },
     {
         "log_id": "nessie2026h1",
         "operator": "digicert",
         "url": "https://nessie2026h1.ct.digicert.com/log/",
-        "enabled": False,
+        "enabled": True,
     },
     # ── Sectigo ──────────────────────────────────────────────────────────────
     {
         "log_id": "sabre2025h2",
         "operator": "sectigo",
         "url": "https://sabre2025h2.ct.comodo.com/",
-        "enabled": False,
+        "enabled": False,  # 2025 H2 — historical only
     },
     {
         "log_id": "sabre2026h1",
         "operator": "sectigo",
         "url": "https://sabre2026h1.ct.comodo.com/",
-        "enabled": False,
+        "enabled": True,
     },
     {
         "log_id": "mammoth2025h2",
         "operator": "sectigo",
         "url": "https://mammoth2025h2.ct.comodo.com/",
-        "enabled": False,
+        "enabled": False,  # 2025 H2 — historical only
     },
     {
         "log_id": "mammoth2026h1",
         "operator": "sectigo",
         "url": "https://mammoth2026h1.ct.comodo.com/",
-        "enabled": False,
+        "enabled": True,
     },
 ]
 
