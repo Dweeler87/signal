@@ -43,11 +43,11 @@ This key gives you 100 API requests per day. Keep it secret — it cannot be ret
 
 Quick start:
 
-  curl -s "https://forelight.io/v1/signals?limit=5" \\
+  curl -s "https://forelight.net/v1/signals?limit=5" \\
     -H "Authorization: Bearer {raw_key}"
 
-Full docs: https://forelight.io/docs
-Clay walkthrough: https://forelight.io/clay
+Full docs: https://forelight.net/docs
+Clay walkthrough: https://forelight.net/clay
 
 ---
 Forelight — The earliest buying signal. Infrastructure, not intent.
@@ -124,5 +124,5 @@ async def signup(body: SignupRequest, ch=Depends(get_ch)):
 
     return {
         "message": "Check your email for your API key.",
-        "docs": "https://forelight.io/docs",
+        "docs": "https://forelight.net/docs",
     }
