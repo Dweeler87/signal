@@ -8,6 +8,8 @@ unittest.mock.patch, which does not intercept FastAPI's DI function references.
 
 import base64
 import uuid
+
+from stripe._error import SignatureVerificationError as StripeSignatureError
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
@@ -54,8 +56,8 @@ def _make_redis(rate_count: int = 1):
 
 
 def _key_row(tier="free", buyer_verified=False, revoked=False,
-             webhook_url=None, webhook_secret=None):
-    return (tier, int(buyer_verified), int(revoked), webhook_url, webhook_secret)
+             webhook_url=None, webhook_secret=None, label=None):
+    return (tier, int(buyer_verified), int(revoked), webhook_url, webhook_secret, label)
 
 
 # ---------------------------------------------------------------------------
@@ -134,7 +136,8 @@ async def test_healthz_ch_down(ch, redis):
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
-async def test_missing_auth():
+async def test_missing_auth(ch):
+    app.dependency_overrides[get_ch] = lambda: ch
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.get("/v1/signals")
     assert resp.status_code == 401
@@ -489,3 +492,204 @@ async def test_delete_webhook_not_configured(ch, authed):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.delete("/v1/webhooks", headers=AUTH_HEADERS)
     assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Account
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_account_returns_quota(ch, redis):
+    redis.get.return_value = "42"
+    app.dependency_overrides[authenticated_key] = lambda: {
+        **FAKE_KEY_RECORD, "label": "signup:test@example.com"
+    }
+    app.dependency_overrides[get_ch] = lambda: ch
+    app.dependency_overrides[get_redis] = lambda: redis
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.get("/v1/account", headers=AUTH_HEADERS)
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["tier"] == "free"
+    assert body["quota_used"] == 42
+    assert body["quota_limit"] == 100
+    assert body["quota_remaining"] == 58
+    assert body["label"] == "signup:test@example.com"
+
+
+@pytest.mark.asyncio
+async def test_account_no_usage(ch, redis):
+    redis.get.return_value = None
+    app.dependency_overrides[authenticated_key] = lambda: FAKE_KEY_RECORD
+    app.dependency_overrides[get_ch] = lambda: ch
+    app.dependency_overrides[get_redis] = lambda: redis
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.get("/v1/account", headers=AUTH_HEADERS)
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["quota_used"] == 0
+    assert body["quota_remaining"] == 100
+
+
+# ---------------------------------------------------------------------------
+# Billing
+# ---------------------------------------------------------------------------
+
+_FAKE_TIER_MAP = {"starter": "price_s", "growth": "price_g", "pro": "price_p"}
+
+
+@pytest.mark.asyncio
+async def test_checkout_no_stripe_config(ch, authed):
+    with patch("api.routes.billing.get_settings") as mock_settings:
+        mock_settings.return_value.stripe_secret_key = ""
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.post(
+                "/v1/billing/checkout",
+                headers=AUTH_HEADERS,
+                json={"tier": "starter"},
+            )
+    assert resp.status_code == 503
+
+
+@pytest.mark.asyncio
+async def test_checkout_unknown_tier(ch, authed):
+    with patch("api.routes.billing.get_settings") as mock_settings, \
+         patch("api.routes.billing._tier_price_map", return_value=_FAKE_TIER_MAP):
+        mock_settings.return_value.stripe_secret_key = "sk_test_xxx"
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.post(
+                "/v1/billing/checkout",
+                headers=AUTH_HEADERS,
+                json={"tier": "enterprise"},
+            )
+    assert resp.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_checkout_returns_url(ch, authed):
+    mock_session = MagicMock()
+    mock_session.url = "https://checkout.stripe.com/pay/cs_test_abc"
+
+    with patch("api.routes.billing.get_settings") as mock_settings, \
+         patch("api.routes.billing._tier_price_map", return_value=_FAKE_TIER_MAP), \
+         patch("stripe.checkout.Session.create", return_value=mock_session):
+        mock_settings.return_value.stripe_secret_key = "sk_test_xxx"
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.post(
+                "/v1/billing/checkout",
+                headers=AUTH_HEADERS,
+                json={"tier": "starter"},
+            )
+
+    assert resp.status_code == 200
+    assert resp.json()["checkout_url"] == "https://checkout.stripe.com/pay/cs_test_abc"
+
+
+@pytest.mark.asyncio
+async def test_webhook_no_config(ch):
+    app.dependency_overrides[get_ch] = lambda: ch
+
+    with patch("api.routes.billing.get_settings") as mock_settings:
+        mock_settings.return_value.stripe_webhook_secret = ""
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.post("/v1/billing/webhook", content=b"{}")
+    assert resp.status_code == 503
+
+
+@pytest.mark.asyncio
+async def test_webhook_invalid_signature(ch):
+    app.dependency_overrides[get_ch] = lambda: ch
+
+    with patch("api.routes.billing.get_settings") as mock_settings, \
+         patch("stripe.Webhook.construct_event",
+               side_effect=StripeSignatureError("bad", "hdr")):
+        mock_settings.return_value.stripe_webhook_secret = "whsec_test"
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.post(
+                "/v1/billing/webhook",
+                content=b"payload",
+                headers={"stripe-signature": "bad"},
+            )
+    assert resp.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_webhook_subscription_created_upgrades_tier(ch):
+    app.dependency_overrides[get_ch] = lambda: ch
+
+    fake_event = {
+        "type": "customer.subscription.created",
+        "data": {
+            "object": {
+                "id": "sub_123",
+                "customer": "cus_456",
+                "metadata": {"key_hash": KEY_HASH},
+                "items": {"data": [{"price": {"id": "price_s"}}]},
+            }
+        },
+    }
+
+    with patch("api.routes.billing.get_settings") as mock_settings, \
+         patch("api.routes.billing._tier_price_map", return_value=_FAKE_TIER_MAP), \
+         patch("stripe.Webhook.construct_event", return_value=fake_event):
+        mock_settings.return_value.stripe_webhook_secret = "whsec_test"
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.post(
+                "/v1/billing/webhook",
+                content=b"payload",
+                headers={"stripe-signature": "t=123,v1=abc"},
+            )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "updated"
+    assert body["tier"] == "starter"
+    ch.command.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_webhook_subscription_deleted_downgrades_to_free(ch):
+    app.dependency_overrides[get_ch] = lambda: ch
+
+    fake_event = {
+        "type": "customer.subscription.deleted",
+        "data": {"object": {"metadata": {"key_hash": KEY_HASH}}},
+    }
+
+    with patch("api.routes.billing.get_settings") as mock_settings, \
+         patch("stripe.Webhook.construct_event", return_value=fake_event):
+        mock_settings.return_value.stripe_webhook_secret = "whsec_test"
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.post(
+                "/v1/billing/webhook",
+                content=b"payload",
+                headers={"stripe-signature": "t=123,v1=abc"},
+            )
+
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "downgraded"
+    ch.command.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_webhook_ignored_event_type(ch):
+    app.dependency_overrides[get_ch] = lambda: ch
+
+    fake_event = {"type": "payment_intent.created", "data": {"object": {}}}
+
+    with patch("api.routes.billing.get_settings") as mock_settings, \
+         patch("stripe.Webhook.construct_event", return_value=fake_event):
+        mock_settings.return_value.stripe_webhook_secret = "whsec_test"
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.post(
+                "/v1/billing/webhook",
+                content=b"payload",
+                headers={"stripe-signature": "t=123,v1=abc"},
+            )
+
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "ignored"

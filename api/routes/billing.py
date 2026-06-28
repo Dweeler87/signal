@@ -17,6 +17,7 @@ a separate customer lookup.
 """
 
 import stripe
+from stripe._error import SignatureVerificationError as StripeSignatureError
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 
@@ -102,7 +103,7 @@ async def stripe_webhook(request: Request, ch=Depends(get_ch)):
         event = stripe.Webhook.construct_event(
             payload, sig_header, s.stripe_webhook_secret
         )
-    except stripe.errors.SignatureVerificationError:
+    except StripeSignatureError:
         raise HTTPException(status_code=400, detail="Invalid Stripe signature.")
 
     obj = event["data"]["object"]

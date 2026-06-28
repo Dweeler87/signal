@@ -43,23 +43,27 @@ CT Logs (public RFC 6962 API)
 
 ---
 
-## CT Logs
+## CT Logs (15 active as of 2026-06-28)
 
-| Log ID | Operator | URL | Status |
-|--------|----------|-----|--------|
-| nimbus2025 | Cloudflare | ct.cloudflare.com/logs/nimbus2025/ | **enabled** |
-| xenon2025h2 | Google | ct.googleapis.com/logs/us1/xenon2025h2/ | disabled |
-| xenon2026h1 | Google | ct.googleapis.com/logs/us1/xenon2026h1/ | disabled |
-| argon2026h1 | Google | ct.googleapis.com/logs/us1/argon2026h1/ | disabled |
-| oak2025h2 | Let's Encrypt | oak.ct.letsencrypt.org/2025h2/ | disabled* |
-| oak2026 | Let's Encrypt | oak.ct.letsencrypt.org/2026/ | disabled* |
-| yeti2025h2 | DigiCert | yeti2025h2.ct.digicert.com/log/ | disabled |
-| yeti2026h1 | DigiCert | yeti2026h1.ct.digicert.com/log/ | disabled |
-| nessie2026h1 | DigiCert | nessie2026h1.ct.digicert.com/log/ | disabled |
-| sabre2025h2 | Sectigo | sabre2025h2.ct.comodo.com/ | disabled |
-| mammoth2026h1 | Sectigo | mammoth2026h1.ct.comodo.com/ | disabled |
-
-*LE oak logs fail on networks with strict DNSSEC. Enable on Hetzner after verifying DNS resolution.
+| Log ID | Operator | Status |
+|--------|----------|--------|
+| nimbus2025 | Cloudflare | **enabled** |
+| nimbus2026 | Cloudflare | **enabled** |
+| argon2026h1 | Google | **enabled** |
+| argon2026h2 | Google | **enabled** |
+| xenon2026h1 | Google | **enabled** |
+| xenon2026h2 | Google | **enabled** |
+| wyvern2026h1 | DigiCert | **enabled** |
+| wyvern2026h2 | DigiCert | **enabled** |
+| sphinx2026h1 | DigiCert | **enabled** |
+| sphinx2026h2 | DigiCert | **enabled** |
+| elephant2026h1 | Sectigo | **enabled** |
+| elephant2026h2 | Sectigo | **enabled** |
+| tiger2026h1 | Sectigo | **enabled** |
+| tiger2026h2 | Sectigo | **enabled** |
+| trustasia2026a | TrustAsia | **enabled** |
+| trustasia2026b | TrustAsia | **enabled** |
+| oak2026h1 | Let's Encrypt | disabled (retired) |
 
 To enable a log: set `"enabled": True` in `ingestion/log_follower.py` LOG_REGISTRY and restart the `log_follower` process. Each new log starts from its current tree head (not from the beginning).
 
@@ -77,7 +81,7 @@ To enable a log: set `"enabled": True` in `ingestion/log_follower.py` LOG_REGIST
 | API | FastAPI + uvicorn |
 | DNS resolution | stdlib socket (asyncio.to_thread) |
 | ASN/hosting | ip-api.com batch (free, 45 req/min) |
-| Firmographics | PDL Company API ($98/mo, 1K lookups) |
+| Firmographics | PDL Company API (disabled — 0.016% hit rate, clear PDL_API_KEY to keep off) |
 | Local dev | Redis standalone (winget on Windows) |
 | Process mgmt (prod) | supervisord |
 | Reverse proxy (prod) | nginx |
@@ -96,6 +100,12 @@ To enable a log: set `"enabled": True` in `ingestion/log_follower.py` LOG_REGIST
 | `REDIS_URL` | Redis connection string (default: redis://localhost:6379) |
 | `PDL_API_KEY` | People Data Labs API key (optional; enrichment skips firmographic without it) |
 | `API_ADMIN_SECRET` | Protects POST /v1/keys — generate with `python -c "import secrets; print(secrets.token_hex(32))"` |
+| `RESEND_API_KEY` | Resend.com key for transactional email (signup, reissue) |
+| `STRIPE_SECRET_KEY` | Stripe secret key for billing |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret |
+| `STRIPE_STARTER_PRICE_ID` | Stripe price ID for Starter tier ($99/mo) |
+| `STRIPE_GROWTH_PRICE_ID` | Stripe price ID for Growth tier ($299/mo) |
+| `STRIPE_PRO_PRICE_ID` | Stripe price ID for Pro tier ($999/mo) |
 | `LOG_LEVEL` | debug / info / warning (default: info) |
 | `INITIAL_LOOKBACK` | Entries to process on first start (default: 2000) |
 
@@ -217,8 +227,10 @@ tail -f /var/log/signal/monitor.log | grep -v '"level":"ok"'
 |-----------|------|------|
 | Hetzner CX32 | 4 vCPU / 8 GB RAM | ~$15/mo |
 | ClickHouse Cloud | Free tier (1 TB storage) | $0 |
-| PDL Company API | 1,000 lookups/mo | $98/mo |
 | ip-api.com | 45 req/min free | $0 |
+| Resend.com | Transactional email | ~$0 (free tier) |
+| Stripe | Subscription billing | 2.9% + 30¢ per transaction |
+| PDL Company API | **disabled** — 0.016% hit rate | $0 (was $98/mo) |
 
 **ClickHouse upgrade path:** If ingest exceeds ~10M rows/day, self-host on a second Hetzner VM ($35/mo). Schema is identical — change connection string only.
 
@@ -240,4 +252,14 @@ tail -f /var/log/signal/monitor.log | grep -v '"level":"ok"'
 - Phase 1: RFC 6962 log follower (Cloudflare nimbus2025), cert parser, TBS dedup, checkpointing.
 - Phase 2: DNS/ASN/technographic/PDL enrichment, signal engine (4 signal types), watchlist matching.
 - Phase 3: FastAPI self-serve API — auth, rate limits, signals/watchlists/keys/webhooks endpoints, 81 tests.
-- Phase 4: supervisord + nginx + Hetzner deploy script, monitor, CT log registry expanded (11 logs).
+- Phase 4: supervisord + nginx + Hetzner deploy script, monitor, CT log registry expanded to 15 active logs.
+
+### 2026-06-28
+- Stripe billing: /v1/billing/checkout + webhook handler; tier upgrades on payment; Growth tier ($299/mo, 40K/day, 60d lookback).
+- Self-serve signup with tier picker; /v1/signup/reissue for lost keys; rate limits keyed to email (not key hash).
+- score_min query param on GET /v1/signals and POST /v1/signals/batch.
+- /v1/account endpoint: tier, quota used/remaining, reset timestamp.
+- Webhook delivery wired to enrichment worker with per-key watchlist filtering.
+- SEO: OG tags, Twitter Cards, JSON-LD, sitemap.xml, robots.txt, og-image.jpg (1200×630).
+- PDL disabled (0.016% hit rate). H2 2026 logs enabled (16 active logs total).
+- Plausible analytics added to all landing pages.

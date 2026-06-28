@@ -52,3 +52,15 @@ class Signal:
             False,   # delivered
             None,    # delivered_at
         ]
+
+    def to_webhook_dict(self) -> dict:
+        return {
+            "signal_type": self.signal_type.value,
+            "domain": self.domain,
+            "apex_domain": self.apex_domain,
+            "detected_at": self.detected_at.isoformat(),
+            "company_name": self.company_name,
+            "company_industry": self.company_industry,
+            "hosting_provider": self.hosting_provider,
+            "saas_vendor": self.saas_vendor,
+        }

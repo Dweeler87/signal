@@ -2,12 +2,13 @@
 Fire-and-forget webhook delivery.
 
 Called by the signal engine after new signals are generated.  For each
-api_keys row that has a webhook_url, we POST matching signals as JSON.
+api_keys row that has a webhook_url, we POST matching signals as JSON,
+filtered through that key's watchlist (empty watchlist = all signals).
 
 Payload shape (one POST per batch, not per signal):
   {
     "event": "signals.new",
-    "data": [{ ...SignalOut fields... }]
+    "data": [{ ...signal fields... }]
   }
 
 Signing: if webhook_secret is set, we include an HMAC-SHA256 signature in
@@ -15,13 +16,15 @@ Signing: if webhook_secret is set, we include an HMAC-SHA256 signature in
 computed over the raw request body bytes.
 """
 
+import asyncio
 import hashlib
 import hmac
 import json
 import logging
-from datetime import datetime, timezone
 
 import httpx
+
+from signals.watchlist import filter_signals_for_key
 
 log = logging.getLogger(__name__)
 
@@ -50,26 +53,48 @@ async def deliver_to_key(url: str, secret: str | None, signals: list[dict]) -> N
         log.warning("webhook delivery to %s failed: %s", url, exc)
 
 
-async def dispatch_signals(ch, signals: list[dict]) -> None:
+async def dispatch_signals(ch, signals) -> None:
     """
-    Query all api_keys with a webhook_url and deliver matching signals.
-    signals is a list of dicts matching SignalOut field names.
+    For each api_key with a webhook_url, filter signals through that key's
+    watchlist and POST any matches.
+
+    signals: list of Signal objects (signals.types.Signal) or dicts.
     """
     if not signals:
         return
 
     rows = ch.query(
-        "SELECT key_hash, webhook_url, webhook_secret FROM signal.api_keys WHERE webhook_url != '' AND revoked = false"
+        """
+        SELECT k.key_hash, k.webhook_url, k.webhook_secret
+        FROM signal.api_keys k
+        WHERE k.webhook_url != '' AND k.webhook_url IS NOT NULL AND k.revoked = false
+        """
     ).result_rows
 
     if not rows:
         return
 
-    import asyncio
     tasks = []
     for key_hash, url, secret in rows:
-        if url:
-            tasks.append(deliver_to_key(url, secret or None, signals))
+        if not url:
+            continue
+
+        # Load this key's watchlist patterns
+        watchlist_rows = ch.query(
+            "SELECT pattern_type, pattern FROM signal.watchlists WHERE key_hash = %(h)s",
+            parameters={"h": key_hash},
+        ).result_rows  # list of (pattern_type, pattern)
+
+        # Filter signals using the watchlist (empty = all signals pass)
+        matched = filter_signals_for_key(signals, watchlist_rows)
+        if not matched:
+            continue
+
+        signal_dicts = [
+            s.to_webhook_dict() if hasattr(s, "to_webhook_dict") else s
+            for s in matched
+        ]
+        tasks.append(deliver_to_key(url, secret or None, signal_dicts))
 
     if tasks:
         await asyncio.gather(*tasks, return_exceptions=True)

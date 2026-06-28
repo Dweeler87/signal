@@ -31,6 +31,7 @@ from enrichment.firmographic_pdl import FirmographicPDL
 from enrichment.http_probe import HttpProbe
 from enrichment.technographic import Technographic
 from enrichment.whois_lookup import WhoisLookup
+from api.webhook_delivery import dispatch_signals
 from signals.engine import generate_signals
 
 log = structlog.get_logger()
@@ -215,7 +216,9 @@ async def run_batch(ch, settings, enrichers: dict) -> int:
             ],
         )
 
-    await generate_signals(ch, enriched_domains)
+    new_signals = await generate_signals(ch, enriched_domains)
+    if new_signals:
+        await dispatch_signals(ch, new_signals)
 
     log.info("enrichment_batch_done", count=len(enriched_domains))
     return len(enriched_domains)
