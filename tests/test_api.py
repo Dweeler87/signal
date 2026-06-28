@@ -165,7 +165,7 @@ async def test_revoked_key(ch, redis):
 @pytest.mark.asyncio
 async def test_rate_limit_exceeded(ch, redis):
     ch.query.return_value = MagicMock(result_rows=[_key_row()])
-    redis.incr.return_value = 101  # free tier limit = 100
+    redis.incrby.return_value = 101  # free tier limit = 100
     app.dependency_overrides[get_ch] = lambda: ch
     app.dependency_overrides[get_redis] = lambda: redis
 

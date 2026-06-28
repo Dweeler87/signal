@@ -10,6 +10,9 @@ class SignalType(str, Enum):
     NEW_SUBDOMAIN = "new_subdomain"
     SAAS_ADOPTION_DETECTED = "saas_adoption_detected"
     INFRASTRUCTURE_EXPANSION = "infrastructure_expansion"
+    GEOGRAPHIC_EXPANSION = "geographic_expansion"
+    DOMAIN_VELOCITY = "domain_velocity"
+    WILDCARD_CERT_ISSUED = "wildcard_cert_issued"
 
 
 SIGNAL_COLUMN_NAMES: list[str] = [

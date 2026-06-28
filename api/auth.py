@@ -83,14 +83,14 @@ def lookup_key(ch, key_hash: str) -> dict:
     }
 
 
-def check_rate_limit(redis_client, key_hash: str, tier: str) -> dict:
-    """Increment daily counter. Raises 429 if over limit. Returns rate limit info."""
+def check_rate_limit(redis_client, key_hash: str, tier: str, cost: int = 1) -> dict:
+    """Increment daily counter by cost. Raises 429 if over limit. Returns rate limit info."""
     from datetime import date
     today = date.today()
     redis_key = f"signal:rate:{key_hash}:{today.strftime('%Y%m%d')}"
 
-    count = redis_client.incr(redis_key)
-    if count == 1:
+    count = redis_client.incrby(redis_key, cost)
+    if count <= cost:  # key created by this call
         redis_client.expire(redis_key, 172800)  # 2-day TTL
 
     limit = RATE_LIMITS.get(tier, 100)

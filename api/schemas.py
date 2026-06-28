@@ -24,6 +24,7 @@ class SignalOut(BaseModel):
     company_industry: str | None = None
     company_size: str | None = None
     company_country: str | None = None
+    score: int = 0  # 1-100 buying signal score; higher = stronger signal
 
     model_config = {"from_attributes": True}
 
@@ -32,6 +33,22 @@ class SignalListResponse(BaseModel):
     data: list[SignalOut]
     next_cursor: str | None = None     # base64(detected_at ISO) — pass as ?cursor=
     total: int
+
+
+# ---------------------------------------------------------------------------
+# Batch lookup
+# ---------------------------------------------------------------------------
+
+class BatchRequest(BaseModel):
+    domains: list[str] = Field(..., min_length=1, max_length=50, description="Apex domains to look up (max 50)")
+    type: str | None = Field(default=None, description="Optional signal_type filter")
+    limit_per_domain: int = Field(default=5, ge=1, le=10)
+
+
+class BatchResponse(BaseModel):
+    data: dict[str, list[SignalOut]]   # apex_domain → signals
+    domains_with_signals: int
+    total_signals: int
 
 
 # ---------------------------------------------------------------------------

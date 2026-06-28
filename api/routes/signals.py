@@ -19,7 +19,7 @@ Clay-friendly: flat JSON, no nested objects, consistent field names.
 """
 
 import base64
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Query, Response
 
@@ -30,7 +30,35 @@ from signals.types import Signal, SignalType
 router = APIRouter(prefix="/v1/signals", tags=["signals"])
 
 # Signal types gated to buyer_verified=true (phishing-adjacent)
-RESTRICTED_SIGNAL_TYPES = set()  # extend in Phase 5
+RESTRICTED_SIGNAL_TYPES = set()
+
+# How far back each tier can query
+TIER_LOOKBACK_DAYS: dict[str, int] = {
+    "free": 1,
+    "starter": 30,
+    "pro": 90,
+}
+
+# Base scores by signal type (1-100)
+_SIGNAL_SCORES: dict[str, int] = {
+    "domain_velocity": 90,
+    "geographic_expansion": 85,
+    "wildcard_cert_issued": 70,
+    "saas_adoption_detected": 65,
+    "infrastructure_expansion": 50,
+    "new_apex_domain": 40,
+    "new_subdomain": 20,
+}
+
+
+def compute_score(signal_type: str, detected_at: datetime) -> int:
+    base = _SIGNAL_SCORES.get(signal_type, 30)
+    now = datetime.now(timezone.utc)
+    if detected_at.tzinfo is None:
+        detected_at = detected_at.replace(tzinfo=timezone.utc)
+    age = now - detected_at
+    boost = 10 if age < timedelta(hours=24) else (5 if age < timedelta(days=7) else 0)
+    return min(100, base + boost)
 
 
 @router.get("", response_model=SignalListResponse)
@@ -48,10 +76,15 @@ def list_signals(
     ch=Depends(get_ch),
     response: Response = None,
 ):
+    # Tier-based lookback window — free=24h, starter=30d, pro=90d
+    tier = key.get("tier", "free")
+    lookback_days = TIER_LOOKBACK_DAYS.get(tier, 1)
+    lookback_cutoff = datetime.now(timezone.utc) - timedelta(days=lookback_days)
+
     # Build WHERE clauses with table-qualified column names.
     # s = signals, d = domains (joined for fresh enrichment data).
-    conditions = []
-    params: dict = {}
+    conditions = ["s.detected_at >= %(lookback_cutoff)s"]
+    params: dict = {"lookback_cutoff": lookback_cutoff.replace(tzinfo=None)}
 
     if type:
         conditions.append("s.signal_type = %(type)s")
@@ -78,8 +111,11 @@ def list_signals(
         params["hosting_provider"] = hosting_provider.lower()
 
     if since:
-        conditions.append("s.detected_at >= %(since)s")
-        params["since"] = since.replace(tzinfo=None) if since.tzinfo else since
+        # Use the more restrictive of ?since= and the tier lookback window
+        since_naive = since.replace(tzinfo=None) if since.tzinfo else since
+        lookback_naive = lookback_cutoff.replace(tzinfo=None)
+        effective_since = max(since_naive, lookback_naive)
+        params["lookback_cutoff"] = effective_since
 
     # Cursor pagination (detected_at DESC)
     if cursor:
@@ -152,6 +188,7 @@ def list_signals(
             saas_vendor=row[6] or None,
             company_name=row[7] or None,
             company_industry=row[8] or None,
+            score=compute_score(row[1], row[4]),
         )
         for row in rows
     ]

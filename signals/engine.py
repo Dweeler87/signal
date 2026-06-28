@@ -26,6 +26,18 @@ log = structlog.get_logger()
 
 EXPANSION_THRESHOLD = 5      # new subdomains in 24h to trigger infrastructure_expansion
 EXPANSION_WINDOW_HOURS = 24
+VELOCITY_THRESHOLD = 3       # new apex domains in 7 days to trigger domain_velocity
+VELOCITY_WINDOW_DAYS = 7
+
+# Country-code TLDs that indicate geographic market entry
+COUNTRY_TLDS = {
+    ".de", ".fr", ".uk", ".au", ".ca", ".jp", ".br", ".mx", ".in", ".cn",
+    ".nl", ".es", ".it", ".se", ".no", ".dk", ".fi", ".pl", ".pt", ".be",
+    ".ch", ".at", ".nz", ".sg", ".hk", ".ie", ".za", ".kr", ".ru", ".ar",
+    ".id", ".th", ".vn", ".my", ".ph", ".tr", ".il", ".ae", ".sa", ".ng",
+    ".eg", ".ke", ".pk", ".bd", ".cz", ".hu", ".ro", ".ua", ".cl", ".gr",
+    ".bg", ".hr", ".sk", ".si", ".lt", ".lv", ".ee", ".lu", ".cy", ".mt",
+}
 
 
 async def generate_signals(ch, domain_names: list[str]) -> list[Signal]:
@@ -55,11 +67,24 @@ async def generate_signals(ch, domain_names: list[str]) -> list[Signal]:
          first_seen_cert, first_seen_at,
          company_name, company_industry, hosting_provider, saas_vendor) = row
 
-        # Skip wildcards for signal generation — too noisy
-        if is_wildcard:
-            continue
-
         candidates: list[Signal] = []
+
+        # Wildcard certs — generate dedicated signal instead of skipping
+        if is_wildcard:
+            candidates.append(Signal(
+                signal_type=SignalType.WILDCARD_CERT_ISSUED,
+                domain=domain,
+                apex_domain=apex_domain,
+                cert_sha256_tbs=first_seen_cert,
+                company_name=company_name,
+                company_industry=company_industry,
+                hosting_provider=hosting_provider,
+            ))
+            # Dedup and move on — no other signals for wildcards
+            for signal in candidates:
+                if not await _signal_exists(ch, signal.signal_type, domain):
+                    generated.append(signal)
+            continue
 
         if is_apex:
             candidates.append(Signal(
@@ -72,6 +97,19 @@ async def generate_signals(ch, domain_names: list[str]) -> list[Signal]:
                 hosting_provider=hosting_provider,
                 saas_vendor=saas_vendor,
             ))
+
+            # Geographic expansion: apex domain with a country-code TLD
+            tld = "." + apex_domain.split(".")[-1]
+            if tld in COUNTRY_TLDS:
+                candidates.append(Signal(
+                    signal_type=SignalType.GEOGRAPHIC_EXPANSION,
+                    domain=domain,
+                    apex_domain=apex_domain,
+                    cert_sha256_tbs=first_seen_cert,
+                    company_name=company_name,
+                    company_industry=company_industry,
+                    hosting_provider=hosting_provider,
+                ))
         else:
             candidates.append(Signal(
                 signal_type=SignalType.NEW_SUBDOMAIN,
@@ -103,6 +141,12 @@ async def generate_signals(ch, domain_names: list[str]) -> list[Signal]:
     expansion_signals = await _check_infrastructure_expansion(ch, domain_names)
     for signal in expansion_signals:
         if not await _signal_exists(ch, SignalType.INFRASTRUCTURE_EXPANSION, signal.apex_domain):
+            generated.append(signal)
+
+    # Check domain_velocity separately (requires cross-domain aggregation by company)
+    velocity_signals = await _check_domain_velocity(ch, domain_names)
+    for signal in velocity_signals:
+        if not await _signal_exists(ch, SignalType.DOMAIN_VELOCITY, signal.domain):
             generated.append(signal)
 
     # Bulk insert all new signals
@@ -169,6 +213,50 @@ async def _check_infrastructure_expansion(ch, domain_names: list[str]) -> list[S
                 domain=apex,
                 apex_domain=apex,
                 cert_sha256_tbs=cert_hash,
+                company_name=company_name,
+                company_industry=company_industry,
+                hosting_provider=hosting_provider,
+            ))
+
+    return signals
+
+
+async def _check_domain_velocity(ch, domain_names: list[str]) -> list[Signal]:
+    """
+    For each company in this batch, check if they've registered VELOCITY_THRESHOLD+
+    new apex domains in the last VELOCITY_WINDOW_DAYS days.
+    Triggers on the Nth domain that crosses the threshold.
+    """
+    # Get apex domains in this batch with a known company name
+    placeholders = ", ".join(f"'{d}'" for d in domain_names)
+    batch_rows = ch.query(f"""
+        SELECT domain, apex_domain, first_seen_cert, company_name, company_industry, hosting_provider
+        FROM signal.domains FINAL
+        WHERE domain IN ({placeholders})
+          AND is_apex = true
+          AND company_name != ''
+          AND company_name IS NOT NULL
+    """).result_rows
+
+    signals: list[Signal] = []
+    cutoff = datetime.now(timezone.utc) - timedelta(days=VELOCITY_WINDOW_DAYS)
+
+    for domain, apex_domain, first_seen_cert, company_name, company_industry, hosting_provider in batch_rows:
+        count_row = ch.query(
+            """
+            SELECT count() FROM signal.signals
+            WHERE signal_type = 'new_apex_domain'
+              AND company_name = %(company)s
+              AND detected_at >= %(cutoff)s
+            """,
+            parameters={"company": company_name, "cutoff": cutoff},
+        ).result_rows
+        if count_row and count_row[0][0] >= VELOCITY_THRESHOLD:
+            signals.append(Signal(
+                signal_type=SignalType.DOMAIN_VELOCITY,
+                domain=domain,
+                apex_domain=apex_domain,
+                cert_sha256_tbs=first_seen_cert,
                 company_name=company_name,
                 company_industry=company_industry,
                 hosting_provider=hosting_provider,

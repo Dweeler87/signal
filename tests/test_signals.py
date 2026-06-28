@@ -131,6 +131,14 @@ def _mock_ch(domain_rows=None, signal_exists=False, cert_rows=None):
             result.result_rows = []
         elif "COUNT()" in sql_upper and "SIGNAL.SIGNALS" in sql_upper:
             result.result_rows = [(1 if signal_exists else 0,)]
+        elif "COMPANY_NAME IS NOT NULL" in sql_upper and "FROM SIGNAL.DOMAINS" in sql_upper:
+            # Velocity domain query — return 6-column rows only for rows with company_name
+            # domain_row format: (domain, apex, is_apex, is_wildcard, cert, first_seen, company, industry, hosting, saas)
+            vel_rows = []
+            for r in (domain_rows or []):
+                if len(r) >= 10 and r[6] is not None:
+                    vel_rows.append((r[0], r[1], r[4], r[6], r[7], r[8]))
+            result.result_rows = vel_rows
         elif "FROM SIGNAL.DOMAINS" in sql_upper:
             result.result_rows = domain_rows or []
         else:
@@ -185,8 +193,8 @@ async def test_generate_signals_saas_adoption():
     assert SignalType.SAAS_ADOPTION_DETECTED in types
 
 
-async def test_generate_signals_wildcard_skipped():
-    """Wildcard domains should not generate signals."""
+async def test_generate_signals_wildcard_cert_issued():
+    """Wildcard domains should generate a wildcard_cert_issued signal."""
     domain_rows = [(
         "example.com", "example.com", False, True,  # is_wildcard=True
         b"\x03" * 32, datetime(2026, 1, 1, tzinfo=timezone.utc),
@@ -195,7 +203,7 @@ async def test_generate_signals_wildcard_skipped():
     ch = _mock_ch(domain_rows=domain_rows, signal_exists=False)
 
     signals = await generate_signals(ch, ["example.com"])
-    assert signals == []
+    assert any(s.signal_type == SignalType.WILDCARD_CERT_ISSUED for s in signals)
 
 
 async def test_generate_signals_empty_input():
