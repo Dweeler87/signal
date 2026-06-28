@@ -31,6 +31,8 @@ dependencies = [
     "tldextract==5.1.2",
     # WHOIS domain registration date (no PII — only creation_date used)
     "python-whois>=0.9.4",
+    # Stripe billing
+    "stripe>=10.0.0",
 ]
 
 [project.optional-dependencies]

@@ -3,7 +3,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.routes import batch, health, keys, signals, signup, watchlists, webhooks
+from api.routes import batch, billing, health, keys, signals, signup, watchlists, webhooks
 
 app = FastAPI(
     title="Forelight API",
@@ -27,3 +27,4 @@ app.include_router(watchlists.router)
 app.include_router(keys.router)
 app.include_router(webhooks.router)
 app.include_router(signup.router)
+app.include_router(billing.router)

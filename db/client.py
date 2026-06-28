@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""
     stripe_starter_price_id: str = ""   # price_xxx from Stripe dashboard
+    stripe_growth_price_id: str = ""
     stripe_pro_price_id: str = ""
 
     class Config:
