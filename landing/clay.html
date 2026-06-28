@@ -109,6 +109,7 @@
     <thead><tr><th>Clay column name</th><th>JSON path</th></tr></thead>
     <tbody>
       <tr><td>Signal Type</td><td>data[0].signal_type</td></tr>
+      <tr><td>Score</td><td>data[0].score</td></tr>
       <tr><td>Domain</td><td>data[0].domain</td></tr>
       <tr><td>Detected At</td><td>data[0].detected_at</td></tr>
       <tr><td>Company Name</td><td>data[0].company_name</td></tr>
@@ -119,18 +120,25 @@
     </tbody>
   </table>
 
+  <div class="callout">
+    <strong>Tip:</strong> Use <code>data[0].score</code> as a Clay filter column. Score ≥ 70 = high-conviction signal (geographic expansion, wildcard cert, SaaS adoption). Route high-score rows to immediate sequences; lower scores to nurture.
+  </div>
+
   <!-- STEP 4 -->
   <div class="step-badge">Step 4</div>
   <h2>Filter by signal type (optional)</h2>
   <p>Use the <code>type</code> query parameter to focus on a specific signal:</p>
 
   <table>
-    <thead><tr><th>type value</th><th>Use case</th></tr></thead>
+    <thead><tr><th>type value</th><th>Score</th><th>Use case</th></tr></thead>
     <tbody>
-      <tr><td>new_apex_domain</td><td>Company just registered a new domain</td></tr>
-      <tr><td>new_subdomain</td><td>Company expanding infrastructure</td></tr>
-      <tr><td>saas_adoption_detected</td><td>Company just adopted a SaaS tool</td></tr>
-      <tr><td>infrastructure_expansion</td><td>Rapid multi-subdomain growth signal</td></tr>
+      <tr><td>domain_velocity</td><td>90</td><td>3+ new domains in 7 days — acquisition, rebrand, or major launch</td></tr>
+      <tr><td>geographic_expansion</td><td>85</td><td>Company registered a country-code domain — entering a new market</td></tr>
+      <tr><td>wildcard_cert_issued</td><td>70</td><td>*.company.com — building out dynamic subdomain infrastructure</td></tr>
+      <tr><td>saas_adoption_detected</td><td>65</td><td>Company just adopted Shopify, HubSpot, Salesforce, Vercel, etc.</td></tr>
+      <tr><td>infrastructure_expansion</td><td>50</td><td>5+ new subdomains in 24h — growth indicator</td></tr>
+      <tr><td>new_apex_domain</td><td>40</td><td>Company just registered a new top-level domain</td></tr>
+      <tr><td>new_subdomain</td><td>20</td><td>Company expanding infrastructure with a new subdomain</td></tr>
     </tbody>
   </table>
 
@@ -171,6 +179,23 @@ Params:
   <div class="callout">
     <strong>Tip:</strong> Use <code>since</code> to only pull signals from the last 7 days: <code>since=2026-06-21T00:00:00Z</code>. Combine with a Clay formula that generates a rolling date to keep your table current.
   </div>
+
+  <!-- BATCH LOOKUP -->
+  <div class="step-badge">Power tip</div>
+  <h2>Batch lookup — enrich 50 domains in one call</h2>
+  <p>On Starter and Pro tiers, use <code>POST /v1/signals/batch</code> instead of per-row GET calls. This is dramatically faster for large Clay tables and uses the same quota (1 credit per domain).</p>
+
+  <div class="code-block">POST https://forelight.net/v1/signals/batch
+Authorization: Bearer YOUR_API_KEY
+Content-Type: application/json
+
+{
+  "domains": ["acme.com", "shopify.com", "stripe.com"],
+  "type": "geographic_expansion",
+  "limit_per_domain": 5
+}</div>
+
+  <p>Response groups signals by domain — map <code>data.acme_com[0].score</code> directly to a Clay column. Use in a Clay HTTP API enrichment block with method POST and JSON body.</p>
 
   <h2>Need help?</h2>
   <p>Email <a href="mailto:clifton.n.harris@gmail.com">clifton.n.harris@gmail.com</a> or check the <a href="/docs">full API docs</a>.</p>

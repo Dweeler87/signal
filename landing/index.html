@@ -334,15 +334,16 @@
 <div class="signal-demo">
   <h2><span class="live-dot"></span>Example signal — fired within minutes of cert issuance</h2>
   <div class="code-block"><pre>{
-  <span class="k">"signal_type"</span><span class="p">:</span> <span class="s">"saas_adoption_detected"</span><span class="p">,</span>
-  <span class="k">"domain"</span><span class="p">:</span>      <span class="s">"store.acmecorp.com.myshopify.com"</span><span class="p">,</span>
-  <span class="k">"apex_domain"</span><span class="p">:</span> <span class="s">"acmecorp.com"</span><span class="p">,</span>
-  <span class="k">"detected_at"</span><span class="p">:</span> <span class="s">"2026-06-28T09:14:02Z"</span><span class="p">,</span>
-  <span class="k">"saas_vendor"</span><span class="p">:</span> <span class="s">"Shopify"</span><span class="p">,</span>
+  <span class="k">"signal_type"</span><span class="p">:</span>      <span class="s">"saas_adoption_detected"</span><span class="p">,</span>
+  <span class="k">"domain"</span><span class="p">:</span>           <span class="s">"store.acmecorp.com.myshopify.com"</span><span class="p">,</span>
+  <span class="k">"apex_domain"</span><span class="p">:</span>      <span class="s">"acmecorp.com"</span><span class="p">,</span>
+  <span class="k">"detected_at"</span><span class="p">:</span>      <span class="s">"2026-06-28T09:14:02Z"</span><span class="p">,</span>
+  <span class="k">"saas_vendor"</span><span class="p">:</span>      <span class="s">"Shopify"</span><span class="p">,</span>
   <span class="k">"company_name"</span><span class="p">:</span>     <span class="s">"Acme Corp"</span><span class="p">,</span>
   <span class="k">"company_industry"</span><span class="p">:</span> <span class="s">"retail"</span><span class="p">,</span>
   <span class="k">"hosting_provider"</span><span class="p">:</span> <span class="s">"Shopify"</span><span class="p">,</span>
-  <span class="k">"signal_id"</span><span class="p">:</span>   <span class="s">"a3f1c2e0-..."</span>
+  <span class="k">"score"</span><span class="p">:</span>            <span class="n">75</span><span class="p">,</span>
+  <span class="k">"signal_id"</span><span class="p">:</span>        <span class="s">"a3f1c2e0-..."</span>
 }</pre></div>
 </div>
 
@@ -350,28 +351,43 @@
 
 <!-- SIGNAL TYPES -->
 <section id="signals">
-  <h2>Four signal types. One API.</h2>
-  <p class="section-sub">Every signal is timestamped to the minute and enriched with company data — not a probability score, a deterministic event.</p>
+  <h2>Seven signal types. One API.</h2>
+  <p class="section-sub">Every signal is timestamped to the minute, enriched with company data, and scored 1–100 — not a probability estimate, a deterministic event with a buying-signal weight.</p>
   <div class="signal-grid">
     <div class="signal-card">
-      <div class="tag">new_apex_domain</div>
+      <div class="tag">domain_velocity &nbsp;·&nbsp; score 90</div>
+      <h3>Domain velocity</h3>
+      <p>A company registered 3+ new domains in 7 days — acquisition prep, major product launch, or rebrand. Highest-conviction signal.</p>
+    </div>
+    <div class="signal-card">
+      <div class="tag">geographic_expansion &nbsp;·&nbsp; score 85</div>
+      <h3>Geographic expansion</h3>
+      <p>A company registered a country-code domain (.de, .fr, .uk, .au, 60+ markets) — entering a new geographic market.</p>
+    </div>
+    <div class="signal-card">
+      <div class="tag">wildcard_cert_issued &nbsp;·&nbsp; score 70</div>
+      <h3>Wildcard cert issued</h3>
+      <p>*.company.com — building out dynamic subdomain infrastructure. Strong signal for multi-tenant SaaS, customer portals, or new product lines.</p>
+    </div>
+    <div class="signal-card">
+      <div class="tag">saas_adoption_detected &nbsp;·&nbsp; score 65</div>
+      <h3>SaaS adoption</h3>
+      <p>A company just connected Shopify, HubSpot, Salesforce, Vercel, or 40+ other platforms. Detected from cert patterns at adoption time.</p>
+    </div>
+    <div class="signal-card">
+      <div class="tag">infrastructure_expansion &nbsp;·&nbsp; score 50</div>
+      <h3>Rapid growth signal</h3>
+      <p>5+ new subdomains in 24 hours — leading indicator of hiring, product launches, or regional rollouts.</p>
+    </div>
+    <div class="signal-card">
+      <div class="tag">new_apex_domain &nbsp;·&nbsp; score 40</div>
       <h3>New domain registered</h3>
       <p>A company just registered a new top-level domain — greenfield opportunity or competitive displacement play.</p>
     </div>
     <div class="signal-card">
-      <div class="tag">new_subdomain</div>
-      <h3>Infrastructure expansion</h3>
+      <div class="tag">new_subdomain &nbsp;·&nbsp; score 20</div>
+      <h3>New subdomain</h3>
       <p>A company is standing up new subdomains — product launches, regional rollouts, new services.</p>
-    </div>
-    <div class="signal-card">
-      <div class="tag">saas_adoption_detected</div>
-      <h3>SaaS adoption</h3>
-      <p>A company just connected Shopify, HubSpot, Salesforce, Vercel, or 40+ other platforms. Detected from cert patterns.</p>
-    </div>
-    <div class="signal-card">
-      <div class="tag">infrastructure_expansion</div>
-      <h3>Rapid growth signal</h3>
-      <p>Multiple new subdomains in 24 hours — a strong leading indicator of hiring, product launches, or geographic expansion.</p>
     </div>
   </div>
 </section>
@@ -434,7 +450,7 @@
       <div class="step-num">2</div>
       <div class="step-body">
         <h3>We parse, enrich, and type each event</h3>
-        <p>Raw cert metadata → domain extraction → DNS/ASN/hosting enrichment → SaaS vendor detection → firmographic data (company name, industry, size). Then classified into one of four signal types.</p>
+        <p>Raw cert metadata → domain extraction → DNS/ASN/hosting enrichment → SaaS vendor detection → firmographic data (company name, industry, size). Classified into seven signal types and scored 1–100 by buying-signal strength.</p>
       </div>
     </div>
     <div class="step">
@@ -510,10 +526,11 @@
       <div class="price-sub">No credit card required</div>
       <ul>
         <li>100 API requests / day</li>
-        <li>All 4 signal types</li>
+        <li>All 7 signal types</li>
+        <li>Signal scoring (1–100)</li>
+        <li>Last 24 hours of signals</li>
         <li>Full enrichment data</li>
         <li>Cursor pagination</li>
-        <li>Community support</li>
       </ul>
     </div>
     <div class="pricing-card featured">
@@ -522,10 +539,11 @@
       <div class="price-sub">~3,300 requests/day</div>
       <ul>
         <li>10,000 API requests / day</li>
+        <li>30 days of signal history</li>
+        <li>Batch lookup (up to 50 domains)</li>
         <li>Webhook delivery</li>
         <li>Watchlist filtering</li>
         <li>Email support</li>
-        <li>Clay &amp; HubSpot guides</li>
       </ul>
     </div>
     <div class="pricing-card">
@@ -534,10 +552,11 @@
       <div class="price-sub">~33,000 requests/day</div>
       <ul>
         <li>100,000 API requests / day</li>
+        <li>90 days of signal history</li>
+        <li>Batch lookup (up to 50 domains)</li>
         <li>Webhook delivery</li>
         <li>Watchlist filtering</li>
         <li>Priority support</li>
-        <li>Custom signal types</li>
       </ul>
     </div>
     <div class="pricing-card">
@@ -546,6 +565,7 @@
       <div class="price-sub">Reseller &amp; embedded pricing</div>
       <ul>
         <li>Unlimited volume</li>
+        <li>Full signal history</li>
         <li>SLA &amp; dedicated support</li>
         <li>White-label / embedded</li>
         <li>Custom enrichment</li>
