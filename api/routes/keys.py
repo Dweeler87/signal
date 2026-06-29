@@ -20,7 +20,7 @@ router = APIRouter(prefix="/v1/keys", tags=["keys"])
 VALID_TIERS = {"free", "starter", "pro"}
 
 
-def require_admin(x_admin_secret: str | None = Header(default=None, alias="X-Admin-Secret")) -> None:
+def require_admin(x_admin_secret: str | None = Header(default=None, alias="X-Admin-Secret", include_in_schema=False)) -> None:
     settings = get_settings()
     if not settings.api_admin_secret:
         raise HTTPException(

@@ -4,7 +4,7 @@ from datetime import date
 
 from fastapi import APIRouter, Depends
 
-from api.auth import RATE_LIMITS, _midnight_ts
+from api.auth import RATE_LIMITS, _midnight_ts, rate_limit_account
 from api.deps import authenticated_key, get_redis
 
 router = APIRouter(prefix="/v1/account", tags=["account"])
@@ -19,7 +19,8 @@ def get_account(
     label = key.get("label", "")
 
     today = date.today()
-    redis_key = f"signal:rate:{label or key['key_hash']}:{today.strftime('%Y%m%d')}"
+    rl_key = rate_limit_account(key, key["key_hash"])
+    redis_key = f"signal:rate:{rl_key}:{today.strftime('%Y%m%d')}"
     raw = redis.get(redis_key)
     quota_used = int(raw) if raw else 0
 

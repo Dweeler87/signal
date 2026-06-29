@@ -176,14 +176,23 @@ def list_signals(
         conditions.append(f"({_SCORE_SQL}) >= %(score_min)s")
         params["score_min"] = score_min
 
-    # Cursor pagination (detected_at DESC)
+    # Cursor pagination (detected_at DESC, signal_id tie-break)
+    # Cursor encodes "ISO_datetime|signal_id" to avoid dropping signals at second boundaries.
     if cursor:
         try:
-            cursor_dt = datetime.fromisoformat(
-                base64.b64decode(cursor.encode()).decode()
-            )
-            conditions.append("s.detected_at < %(cursor_dt)s")
-            params["cursor_dt"] = cursor_dt.replace(tzinfo=None)
+            decoded = base64.b64decode(cursor.encode()).decode()
+            if "|" in decoded:
+                dt_part, id_part = decoded.split("|", 1)
+                cursor_dt = datetime.fromisoformat(dt_part)
+                conditions.append(
+                    "(s.detected_at < %(cursor_dt)s OR (s.detected_at = %(cursor_dt)s AND s.signal_id < %(cursor_id)s))"
+                )
+                params["cursor_dt"] = cursor_dt.replace(tzinfo=None)
+                params["cursor_id"] = id_part
+            else:
+                cursor_dt = datetime.fromisoformat(decoded)
+                conditions.append("s.detected_at < %(cursor_dt)s")
+                params["cursor_dt"] = cursor_dt.replace(tzinfo=None)
         except Exception:
             pass  # invalid cursor → ignore and start from the top
 
@@ -286,8 +295,9 @@ def list_signals(
     next_cursor: str | None = None
     if has_more and rows:
         last_dt = rows[-1][4]
+        last_id = str(rows[-1][0])
         if hasattr(last_dt, "isoformat"):
-            next_cursor = base64.b64encode(last_dt.isoformat().encode()).decode()
+            next_cursor = base64.b64encode(f"{last_dt.isoformat()}|{last_id}".encode()).decode()
 
     if response is not None:
         rl = key.get("_rl", {})

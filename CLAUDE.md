@@ -263,3 +263,7 @@ tail -f /var/log/signal/monitor.log | grep -v '"level":"ok"'
 - SEO: OG tags, Twitter Cards, JSON-LD, sitemap.xml, robots.txt, og-image.jpg (1200×630).
 - PDL disabled (0.016% hit rate). H2 2026 logs enabled (16 active logs total).
 - Plausible analytics added to all landing pages.
+- Security: X-Admin-Secret hidden from public OpenAPI spec; /metrics gated behind admin secret.
+- Bug fix: /v1/account quota reads same Redis bucket as rate limiter (was always showing 0 for non-signup keys).
+- Bug fix: cursor pagination now encodes signal_id alongside timestamp to prevent signal drops at second boundaries.
+- Company name: WHOIS org field used as zero-cost fallback for company_name when PDL is disabled.

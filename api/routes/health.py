@@ -2,12 +2,19 @@
 
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 
 from api.deps import get_ch, get_redis
 from api.schemas import HealthResponse, MetricsResponse
+from db.client import get_settings
 
 router = APIRouter()
+
+
+def _require_admin(x_admin_secret: str | None = Header(default=None, alias="X-Admin-Secret", include_in_schema=False)) -> None:
+    s = get_settings()
+    if not s.api_admin_secret or x_admin_secret != s.api_admin_secret:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden.")
 
 
 @router.get("/healthz", response_model=HealthResponse, tags=["ops"])
@@ -30,7 +37,7 @@ def healthz(ch=Depends(get_ch), redis=Depends(get_redis)):
 
 
 @router.get("/metrics", response_model=MetricsResponse, tags=["ops"])
-def metrics(ch=Depends(get_ch)):
+def metrics(_: None = Depends(_require_admin), ch=Depends(get_ch)):
     total_certs = ch.query("SELECT count() FROM signal.certificates").result_rows[0][0]
     total_domains = ch.query("SELECT count() FROM signal.domains").result_rows[0][0]
     total_signals = ch.query("SELECT count() FROM signal.signals").result_rows[0][0]
