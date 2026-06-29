@@ -35,7 +35,7 @@ async def get_whois_data(apex_domain: str) -> tuple[datetime | None, str | None]
             creation = creation[0]
         reg_date = creation.replace(tzinfo=None) if isinstance(creation, datetime) else None
 
-        org = result.org or result.registrant_name
+        org = result.org
         if isinstance(org, list):
             org = org[0]
         company_name = _clean_org(org)
@@ -53,10 +53,16 @@ def _clean_org(org: str | None) -> str | None:
     org = org.strip()
     if not org:
         return None
-    # Common WHOIS privacy/proxy strings to discard
+    # Common WHOIS privacy/proxy strings, error states, and placeholder values to discard
     noise = ("privacy", "proxy", "redacted", "whoisguard", "perfect privacy",
-             "domains by proxy", "contact privacy", "withheld", "data protected")
-    if any(n in org.lower() for n in noise):
+             "domains by proxy", "contact privacy", "withheld", "data protected",
+             "domain expired", "data expunged", "not disclosed", "data masked",
+             "registration private", "identity protection", "n/a", "none",
+             "see registrar", "domain administrator")
+    lower = org.lower()
+    if any(n in lower for n in noise):
+        return None
+    if lower in ("n/a", "none", "na", "-", ".", "null"):
         return None
     # Trim legal suffixes that add noise without meaning
     return org[:128]  # cap length

@@ -17,7 +17,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from api.auth import generate_key
-from api.deps import authenticated_key, get_ch, get_redis
+from api.deps import authenticated_key, authenticated_key_no_rl, get_ch, get_redis
 from api.main import app
 
 # ---------------------------------------------------------------------------
@@ -113,8 +113,6 @@ async def test_healthz_ok(ch, redis):
     assert resp.status_code == 200
     body = resp.json()
     assert body["status"] == "ok"
-    assert body["clickhouse"] == "ok"
-    assert body["redis"] == "ok"
 
 
 @pytest.mark.asyncio
@@ -128,7 +126,6 @@ async def test_healthz_ch_down(ch, redis):
 
     assert resp.status_code == 200
     assert resp.json()["status"] == "degraded"
-    assert resp.json()["clickhouse"] == "error"
 
 
 # ---------------------------------------------------------------------------
@@ -501,9 +498,8 @@ async def test_delete_webhook_not_configured(ch, authed):
 @pytest.mark.asyncio
 async def test_account_returns_quota(ch, redis):
     redis.get.return_value = "42"
-    app.dependency_overrides[authenticated_key] = lambda: {
-        **FAKE_KEY_RECORD, "label": "signup:test@example.com"
-    }
+    key_record = {**FAKE_KEY_RECORD, "label": "signup:test@example.com"}
+    app.dependency_overrides[authenticated_key_no_rl] = lambda: (key_record, KEY_HASH)
     app.dependency_overrides[get_ch] = lambda: ch
     app.dependency_overrides[get_redis] = lambda: redis
 
@@ -522,7 +518,7 @@ async def test_account_returns_quota(ch, redis):
 @pytest.mark.asyncio
 async def test_account_no_usage(ch, redis):
     redis.get.return_value = None
-    app.dependency_overrides[authenticated_key] = lambda: FAKE_KEY_RECORD
+    app.dependency_overrides[authenticated_key_no_rl] = lambda: (FAKE_KEY_RECORD, KEY_HASH)
     app.dependency_overrides[get_ch] = lambda: ch
     app.dependency_overrides[get_redis] = lambda: redis
 

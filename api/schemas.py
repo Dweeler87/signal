@@ -34,6 +34,7 @@ class SignalListResponse(BaseModel):
     data: list[SignalOut]
     next_cursor: str | None = None     # base64("detected_at ISO|signal_id") — pass as ?cursor=
     total: int
+    effective_since: str | None = None  # ISO 8601 — actual lookback applied (tier may restrict ?since=)
 
 
 # ---------------------------------------------------------------------------

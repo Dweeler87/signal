@@ -33,7 +33,8 @@ def healthz(ch=Depends(get_ch), redis=Depends(get_redis)):
         redis_status = "error"
 
     overall = "ok" if ch_status == "ok" and redis_status == "ok" else "degraded"
-    return HealthResponse(status=overall, clickhouse=ch_status, redis=redis_status)
+    # Return only overall status publicly — component names reveal internal tech stack
+    return HealthResponse(status=overall, clickhouse="", redis="")
 
 
 @router.get("/metrics", response_model=MetricsResponse, tags=["ops"])

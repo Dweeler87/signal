@@ -15,7 +15,7 @@ from api.deps import get_ch
 from api.schemas import KeyCreate, KeyOut
 from db.client import get_settings
 
-router = APIRouter(prefix="/v1/keys", tags=["keys"])
+router = APIRouter(prefix="/v1/keys", tags=["keys"], include_in_schema=False)
 
 VALID_TIERS = {"free", "starter", "pro"}
 

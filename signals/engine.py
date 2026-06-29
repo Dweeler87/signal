@@ -29,6 +29,35 @@ EXPANSION_WINDOW_HOURS = 24
 VELOCITY_THRESHOLD = 3       # new apex domains in 7 days to trigger domain_velocity
 VELOCITY_WINDOW_DAYS = 7
 
+# Apex domains that are managed platform namespaces, not real companies.
+# Subdomains of these are customer-facing infra for the *platform*, not GTM signals.
+_PLATFORM_APEX_DOMAINS: frozenset[str] = frozenset({
+    # Microsoft Azure
+    "windows.net", "azurewebsites.net", "azure.com", "cloudapp.azure.com",
+    "azurecontainer.io", "azurecr.io", "trafficmanager.net", "blob.core.windows.net",
+    # AWS
+    "amazonaws.com", "cloudfront.net", "elasticbeanstalk.com", "awsapps.com",
+    "execute-api.us-east-1.amazonaws.com",
+    # Google Cloud
+    "googleapis.com", "googleusercontent.com", "run.app", "cloudfunctions.net",
+    "appspot.com", "web.app", "firebaseapp.com",
+    # Website builders / consumer hosting
+    "wixsite.com", "wix.com", "squarespace.com", "squarespace.net",
+    "weebly.com", "wordpress.com", "sites.google.com",
+    "github.io", "gitlab.io", "pages.dev",
+    # Hosting platforms
+    "vercel.app", "netlify.app", "netlify.com",
+    "heroku.com", "herokudns.com", "herokuapp.com",
+    "fly.dev", "railway.app", "render.com",
+    "code.run", "addon.code.run",
+    # CDN / media / consumer
+    "plex.direct", "fastly.net", "akamaized.net",
+    "hubspotpagebuilder.com", "hs-sites.com",
+    # Domain parking / generic TLD noise
+    "parking.net", "sedoparking.com",
+})
+
+
 # Country-code TLDs that indicate geographic market entry
 COUNTRY_TLDS = {
     ".de", ".fr", ".uk", ".au", ".ca", ".jp", ".br", ".mx", ".in", ".cn",
@@ -67,6 +96,11 @@ async def generate_signals(ch, domain_names: list[str]) -> list[Signal]:
          first_seen_cert, first_seen_at,
          company_name, company_industry, hosting_provider,
          saas_vendor, txt_vendor, http_tech, is_live, domain_registered_at) = row
+
+        # Skip domains whose apex is a known managed platform namespace.
+        # These are platform-operator-issued certs for *their customers*, not GTM signals.
+        if apex_domain in _PLATFORM_APEX_DOMAINS:
+            continue
 
         candidates: list[Signal] = []
 

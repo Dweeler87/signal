@@ -55,12 +55,12 @@ _SIGNAL_SCORES: dict[str, int] = {
 }
 
 _SIGNAL_LABELS: dict[str, str] = {
-    "domain_velocity": "3+ new domains in 7 days — acquisition, rebrand, or major launch",
-    "geographic_expansion": "country-code domain registered — new geographic market entry",
-    "fresh_domain": "domain registered ≤30 days before first cert — brand new company launching infrastructure",
-    "wildcard_cert_issued": "wildcard cert issued — dynamic subdomain infrastructure build-out",
+    "domain_velocity": "3+ new domains in 7 days: acquisition, rebrand, or major launch",
+    "geographic_expansion": "country-code domain registered: new geographic market entry",
+    "fresh_domain": "domain registered <=30 days before first cert: brand new company launching infrastructure",
+    "wildcard_cert_issued": "wildcard cert issued: dynamic subdomain infrastructure build-out",
     "saas_adoption_detected": "SaaS platform adoption detected at cert issuance",
-    "infrastructure_expansion": "5+ new subdomains in 24h — rapid infrastructure growth",
+    "infrastructure_expansion": "5+ new subdomains in 24h: rapid infrastructure growth",
     "new_apex_domain": "new top-level domain registered",
     "new_subdomain": "new subdomain detected",
 }
@@ -169,8 +169,10 @@ def list_signals(
         # Use the more restrictive of ?since= and the tier lookback window
         since_naive = since.replace(tzinfo=None) if since.tzinfo else since
         lookback_naive = lookback_cutoff.replace(tzinfo=None)
-        effective_since = max(since_naive, lookback_naive)
-        params["lookback_cutoff"] = effective_since
+        effective_since_dt = max(since_naive, lookback_naive)
+        params["lookback_cutoff"] = effective_since_dt
+    else:
+        effective_since_dt = lookback_cutoff.replace(tzinfo=None)
 
     if score_min is not None:
         conditions.append(f"({_SCORE_SQL}) >= %(score_min)s")
@@ -236,7 +238,7 @@ def list_signals(
         FROM signal.signals s
         LEFT JOIN {domains_subq} ON s.apex_domain = d.domain
         {where}
-        ORDER BY s.detected_at DESC
+        ORDER BY s.detected_at DESC, s.signal_id DESC
         LIMIT %(limit)s
         """,
         parameters={**params, "limit": limit + 1},
@@ -305,4 +307,9 @@ def list_signals(
         response.headers["X-RateLimit-Remaining"] = str(rl.get("remaining", ""))
         response.headers["X-RateLimit-Reset"] = str(rl.get("reset", ""))
 
-    return SignalListResponse(data=signals_out, next_cursor=next_cursor, total=total)
+    return SignalListResponse(
+        data=signals_out,
+        next_cursor=next_cursor,
+        total=total,
+        effective_since=effective_since_dt.isoformat() + "Z",
+    )
