@@ -32,7 +32,7 @@ class SignalOut(BaseModel):
 
 class SignalListResponse(BaseModel):
     data: list[SignalOut]
-    next_cursor: str | None = None     # base64(detected_at ISO) — pass as ?cursor=
+    next_cursor: str | None = None     # base64("detected_at ISO|signal_id") — pass as ?cursor=
     total: int
 
 

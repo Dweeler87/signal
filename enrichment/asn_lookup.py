@@ -100,11 +100,12 @@ async def lookup_batch(
         cdn = _detect_cdn(asn_name, asn_str)
         hosting = _detect_hosting(item.get("org", ""), item.get("isp", ""))
 
+        raw_org = item.get("org") or item.get("isp") or ""
         out[ip] = EnrichmentResult(
             ip=ip,
             asn=asn_num,
-            asn_org=item.get("org") or item.get("isp"),
-            hosting_provider=hosting,
+            asn_org=raw_org,
+            hosting_provider=hosting or _normalize_org(raw_org),
             cdn_provider=cdn,
             country_code=item.get("countryCode"),
         )
@@ -136,3 +137,20 @@ def _detect_hosting(org: str, isp: str) -> str | None:
         if pattern.lower() in combined.lower():
             return name
     return None
+
+
+_ORG_NOISE = (" inc.", ", inc", " llc", ", llc", " ltd", ", ltd", " corp.",
+              ", corp", " co.", " limited", " s.a.", " b.v.", " gmbh")
+
+
+def _normalize_org(org: str) -> str | None:
+    """Return a readable org name for unknown providers, stripping legal suffixes."""
+    if not org:
+        return None
+    cleaned = org.strip()
+    lower = cleaned.lower()
+    for suffix in _ORG_NOISE:
+        if lower.endswith(suffix):
+            cleaned = cleaned[:len(cleaned) - len(suffix)].strip().rstrip(",")
+            break
+    return cleaned[:80] if cleaned else None

@@ -29,11 +29,13 @@ def batch_signals(
     tier = key_record.get("tier", "free")
 
     # Rate limit cost = number of domains requested
-    rl = check_rate_limit(redis, rate_limit_account(key_record, key_hash), tier, cost=len(body.domains))
+    quota_cost = len(body.domains)
+    rl = check_rate_limit(redis, rate_limit_account(key_record, key_hash), tier, cost=quota_cost)
     if response is not None:
         response.headers["X-RateLimit-Limit"] = str(rl["limit"])
         response.headers["X-RateLimit-Remaining"] = str(rl["remaining"])
         response.headers["X-RateLimit-Reset"] = str(rl["reset"])
+        response.headers["X-Quota-Cost"] = str(quota_cost)
 
     domains = [d.strip().lower() for d in body.domains]
     placeholders = ", ".join(f"%(d{i})s" for i in range(len(domains)))
