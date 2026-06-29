@@ -48,24 +48,31 @@ async def get_whois_data(apex_domain: str) -> tuple[datetime | None, str | None]
 
 def _clean_org(org: str | None) -> str | None:
     """Strip WHOIS privacy/proxy noise. Returns None if the org is a privacy service."""
+    import re
     if not org or not isinstance(org, str):
         return None
     org = org.strip()
     if not org:
         return None
-    # Common WHOIS privacy/proxy strings, error states, and placeholder values to discard
-    noise = ("privacy", "proxy", "redacted", "whoisguard", "perfect privacy",
-             "domains by proxy", "contact privacy", "withheld", "data protected",
-             "domain expired", "data expunged", "not disclosed", "data masked",
-             "registration private", "identity protection", "n/a", "none",
-             "see registrar", "domain administrator")
     lower = org.lower()
+    # WHOIS privacy/proxy services, placeholders, and error states
+    noise = (
+        "privacy", "proxy", "redacted", "whoisguard", "perfect privacy",
+        "domains by proxy", "contact privacy", "withheld", "data protected",
+        "domain expired", "data expunged", "not disclosed", "data masked",
+        "registration private", "identity protection", "knock knock whois",
+        "domain protection", "domain guard", "see registrar", "gdpr masked",
+        "gdpr", "upon request", "domain administrator", "registrant of",
+        "n/a", "none", "unknown", "private",
+    )
     if any(n in lower for n in noise):
         return None
-    if lower in ("n/a", "none", "na", "-", ".", "null"):
+    if lower in ("na", "-", ".", "null", ""):
         return None
-    # Trim legal suffixes that add noise without meaning
-    return org[:128]  # cap length
+    # Registrar account IDs: e.g. FORPSI-SJH-S836013, REG-12345-ABC
+    if re.match(r'^[A-Z0-9]{2,}-[A-Z0-9]{2,}-[A-Z0-9]{2,}$', org):
+        return None
+    return org[:128]
 
 
 def _whois_query(domain: str):

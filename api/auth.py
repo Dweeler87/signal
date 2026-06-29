@@ -109,7 +109,7 @@ def check_rate_limit(redis_client, key_hash: str, tier: str, cost: int = 1) -> d
 
     limit = RATE_LIMITS.get(tier, 100)
     remaining = max(0, limit - count)
-    reset = _midnight_ts()
+    reset_iso = _midnight_iso()
 
     if count > limit:
         raise HTTPException(
@@ -118,11 +118,11 @@ def check_rate_limit(redis_client, key_hash: str, tier: str, cost: int = 1) -> d
             headers={
                 "X-RateLimit-Limit": str(limit),
                 "X-RateLimit-Remaining": "0",
-                "X-RateLimit-Reset": str(reset),
+                "X-RateLimit-Reset": reset_iso,
             },
         )
 
-    return {"limit": limit, "remaining": remaining, "reset": reset}
+    return {"limit": limit, "remaining": remaining, "reset": reset_iso}
 
 
 def _midnight_ts() -> int:
@@ -134,3 +134,14 @@ def _midnight_ts() -> int:
         tzinfo=timezone.utc,
     )
     return int(tomorrow.timestamp())
+
+
+def _midnight_iso() -> str:
+    """ISO 8601 string of next UTC midnight."""
+    from datetime import date, datetime, timedelta, timezone
+    tomorrow = datetime.combine(
+        date.today() + timedelta(days=1),
+        datetime.min.time(),
+        tzinfo=timezone.utc,
+    )
+    return tomorrow.isoformat()

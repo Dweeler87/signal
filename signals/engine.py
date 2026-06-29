@@ -16,6 +16,7 @@ Run as a module (called by the enrichment worker after each batch):
 """
 
 import asyncio
+import re
 from datetime import datetime, timedelta, timezone
 
 import structlog
@@ -32,12 +33,13 @@ VELOCITY_WINDOW_DAYS = 7
 # Apex domains that are managed platform namespaces, not real companies.
 # Subdomains of these are customer-facing infra for the *platform*, not GTM signals.
 _PLATFORM_APEX_DOMAINS: frozenset[str] = frozenset({
-    # Microsoft Azure
+    # Microsoft Azure internal
     "windows.net", "azurewebsites.net", "azure.com", "cloudapp.azure.com",
     "azurecontainer.io", "azurecr.io", "trafficmanager.net", "blob.core.windows.net",
-    # AWS
+    "azure.net", "azure.us", "arconazure.com",
+    # AWS internal (canary cert domain used by ACM for cert rotation probing)
     "amazonaws.com", "cloudfront.net", "elasticbeanstalk.com", "awsapps.com",
-    "execute-api.us-east-1.amazonaws.com",
+    "aws.dev",  # AWS ACM canary certs — never a real customer domain
     # Google Cloud
     "googleapis.com", "googleusercontent.com", "run.app", "cloudfunctions.net",
     "appspot.com", "web.app", "firebaseapp.com",
@@ -55,6 +57,16 @@ _PLATFORM_APEX_DOMAINS: frozenset[str] = frozenset({
     "hubspotpagebuilder.com", "hs-sites.com",
     # Domain parking / generic TLD noise
     "parking.net", "sedoparking.com",
+})
+
+# Apex domain label patterns that indicate automated/bulk registration, not real companies.
+# Matches: UUID-style (8+ hex chars with optional dashes), pure numeric labels.
+_NOISE_LABEL_RE = re.compile(r'^[0-9a-f]{8,}(-[0-9a-f]+)*$|^\d+$', re.IGNORECASE)
+
+# TLDs used almost exclusively for spam/squatting — suppress new_apex_domain signals only.
+_SPAM_TLDS: frozenset[str] = frozenset({
+    ".icu", ".cfd", ".cyou", ".sbs", ".vip", ".mom", ".hair",
+    ".bond", ".quest", ".life", ".fun", ".gq", ".cf", ".tk", ".ml", ".ga",
 })
 
 
@@ -98,9 +110,17 @@ async def generate_signals(ch, domain_names: list[str]) -> list[Signal]:
          saas_vendor, txt_vendor, http_tech, is_live, domain_registered_at) = row
 
         # Skip domains whose apex is a known managed platform namespace.
-        # These are platform-operator-issued certs for *their customers*, not GTM signals.
         if apex_domain in _PLATFORM_APEX_DOMAINS:
             continue
+
+        # Skip hex/UUID-style apex domain labels — automated bulk registrations.
+        apex_label = apex_domain.split(".")[0]
+        if _NOISE_LABEL_RE.match(apex_label):
+            continue
+
+        # Skip known spam-TLD apex domains for new_apex_domain signal type.
+        apex_tld = "." + apex_domain.rsplit(".", 1)[-1]
+        is_spam_tld = apex_tld in _SPAM_TLDS
 
         candidates: list[Signal] = []
 
@@ -122,16 +142,17 @@ async def generate_signals(ch, domain_names: list[str]) -> list[Signal]:
             continue
 
         if is_apex:
-            candidates.append(Signal(
-                signal_type=SignalType.NEW_APEX_DOMAIN,
-                domain=domain,
-                apex_domain=apex_domain,
-                cert_sha256_tbs=first_seen_cert,
-                company_name=company_name,
-                company_industry=company_industry,
-                hosting_provider=hosting_provider,
-                saas_vendor=saas_vendor,
-            ))
+            if not is_spam_tld:
+                candidates.append(Signal(
+                    signal_type=SignalType.NEW_APEX_DOMAIN,
+                    domain=domain,
+                    apex_domain=apex_domain,
+                    cert_sha256_tbs=first_seen_cert,
+                    company_name=company_name,
+                    company_industry=company_industry,
+                    hosting_provider=hosting_provider,
+                    saas_vendor=saas_vendor,
+                ))
 
             # Geographic expansion: apex domain with a country-code TLD
             tld = "." + apex_domain.split(".")[-1]
