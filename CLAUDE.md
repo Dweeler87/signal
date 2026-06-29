@@ -82,6 +82,7 @@ To enable a log: set `"enabled": True` in `ingestion/log_follower.py` LOG_REGIST
 | DNS resolution | stdlib socket (asyncio.to_thread) |
 | ASN/hosting | ip-api.com batch (free, 45 req/min) |
 | Firmographics | PDL Company API (disabled — 0.016% hit rate, clear PDL_API_KEY to keep off) |
+| LLM enrichment | Claude Haiku 4.5 — extracts company_name + industry from domain homepage metadata (~$0.0003/domain) |
 | Local dev | Redis standalone (winget on Windows) |
 | Process mgmt (prod) | supervisord |
 | Reverse proxy (prod) | nginx |
@@ -106,6 +107,7 @@ To enable a log: set `"enabled": True` in `ingestion/log_follower.py` LOG_REGIST
 | `STRIPE_STARTER_PRICE_ID` | Stripe price ID for Starter tier ($99/mo) |
 | `STRIPE_GROWTH_PRICE_ID` | Stripe price ID for Growth tier ($299/mo) |
 | `STRIPE_PRO_PRICE_ID` | Stripe price ID for Pro tier ($999/mo) |
+| `ANTHROPIC_API_KEY` | Claude Haiku API key for LLM web enrichment (company_name + industry from homepage) |
 | `LOG_LEVEL` | debug / info / warning (default: info) |
 | `INITIAL_LOOKBACK` | Entries to process on first start (default: 2000) |
 

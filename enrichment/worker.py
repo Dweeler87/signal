@@ -30,6 +30,7 @@ from enrichment.dns_txt import DnsTxt
 from enrichment.firmographic_pdl import FirmographicPDL
 from enrichment.http_probe import HttpProbe
 from enrichment.technographic import Technographic
+from enrichment.web_enricher import WebEnricher
 from enrichment.whois_lookup import WhoisLookup
 from api.webhook_delivery import dispatch_signals
 from signals.engine import generate_signals
@@ -96,6 +97,7 @@ async def run_batch(ch, settings, enrichers: dict) -> int:
     dns_txt = enrichers["dns_txt"]
     whois = enrichers["whois"]
     http_probe = enrichers["http_probe"]
+    web = enrichers["web"]
 
     # Poll for unenriched domains (FINAL gives deduplicated view)
     rows = ch.query(f"""
@@ -114,6 +116,8 @@ async def run_batch(ch, settings, enrichers: dict) -> int:
     sem = asyncio.Semaphore(20)
     # PDL free tier: ~1 req/sec. Pro tier: ~10 req/sec.
     pdl_sem = asyncio.Semaphore(1)
+    # Anthropic Haiku: generous rate limits, but keep concurrent calls bounded.
+    llm_sem = asyncio.Semaphore(10)
     enriched_domains: list[str] = []
     insert_rows = []
 
@@ -165,6 +169,20 @@ async def run_batch(ch, settings, enrichers: dict) -> int:
                         log.info("http_tech_detected", domain=domain, tech=http_result.http_tech)
                 except Exception:
                     pass
+
+                # LLM enrichment: fetch homepage metadata + Claude Haiku extraction.
+                # Only runs if ANTHROPIC_API_KEY is set and company_name not yet known.
+                if not result.company_name:
+                    try:
+                        async with llm_sem:
+                            web_result = await web.enrich(domain, apex_domain, [], "")
+                        result.merge(web_result)
+                        if web_result.company_name:
+                            log.info("llm_enriched", domain=apex_domain,
+                                     company=web_result.company_name,
+                                     industry=web_result.company_industry)
+                    except Exception as exc:
+                        log.warning("llm_enrich_error", domain=apex_domain, error=str(exc))
 
         enriched_at = datetime.now(timezone.utc)
 
@@ -245,9 +263,12 @@ async def main() -> None:
             "dns_txt": DnsTxt(),
             "whois": WhoisLookup(),
             "http_probe": HttpProbe(http_client=http),
+            "web": WebEnricher(api_key=settings.anthropic_api_key, http_client=http),
         }
 
-        log.info("enrichment_worker_started", pdl_enabled=bool(settings.pdl_api_key))
+        log.info("enrichment_worker_started",
+                 pdl_enabled=bool(settings.pdl_api_key),
+                 llm_enabled=bool(settings.anthropic_api_key))
 
         while True:
             try:

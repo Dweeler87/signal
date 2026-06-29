@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     initial_lookback: int = 2000
     # PDL Company API key (optional — enrichment skipped if not set)
     pdl_api_key: str = ""
+    # Anthropic API key for LLM-based web enrichment (company_name + industry from homepage)
+    anthropic_api_key: str = ""
     # Enrichment worker settings
     enrichment_batch_size: int = 100
     enrichment_poll_interval: int = 5  # seconds between polls

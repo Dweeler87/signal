@@ -15,6 +15,7 @@ from enrichment.asn_lookup import AsnLookup, lookup_batch, _parse_asn_number, _d
 from enrichment.dns_resolver import resolve_ipv4, DnsResolver
 from enrichment.firmographic_pdl import FirmographicPDL, enrich_domain
 from enrichment.technographic import Technographic, detect_saas_vendor, is_saas_domain
+from enrichment.web_enricher import WebEnricher, _extract_metadata, INDUSTRY_TAXONOMY
 
 
 # ---------------------------------------------------------------------------
@@ -184,3 +185,67 @@ async def test_pdl_returns_empty_on_404(httpx_mock: HTTPXMock):
     async with httpx.AsyncClient() as http:
         result = await enrich_domain("unknown-corp.com", "fake-key", http)
     assert result.company_name is None
+
+
+# ---------------------------------------------------------------------------
+# Web enricher
+# ---------------------------------------------------------------------------
+
+def test_extract_metadata_og_tags():
+    html = """<html><head>
+    <title>Acme Corp | CRM Software</title>
+    <meta property="og:site_name" content="Acme Corp" />
+    <meta property="og:description" content="Leading CRM for sales teams." />
+    </head><body></body></html>"""
+    meta = _extract_metadata(html)
+    assert meta["name"] == "Acme Corp"
+    assert "CRM" in meta["description"]
+
+
+def test_extract_metadata_title_fallback():
+    html = "<html><head><title>BetterDocs — Documentation Platform</title></head><body></body></html>"
+    meta = _extract_metadata(html)
+    assert meta["name"] == "BetterDocs — Documentation Platform"
+
+
+def test_extract_metadata_empty_page():
+    meta = _extract_metadata("<html><body>nothing</body></html>")
+    assert meta["name"] == ""
+    assert meta["description"] == ""
+
+
+async def test_web_enricher_skips_without_api_key():
+    enricher = WebEnricher(api_key="")
+    result = await enricher.enrich("acme.com", "acme.com", [], "")
+    assert result.company_name is None
+    assert result.company_industry is None
+
+
+async def test_web_enricher_extracts_company(httpx_mock: HTTPXMock):
+    html = """<html><head>
+    <meta property="og:site_name" content="Dental &amp; Design" />
+    <meta name="description" content="Software for dental practices." />
+    </head></html>"""
+    httpx_mock.add_response(url="https://dentaldesign.com", text=html)
+
+    llm_response = json.dumps({"company_name": "Dental & Design", "company_industry": "healthcare"})
+
+    with pytest.MonkeyPatch.context() as mp:
+        import enrichment.web_enricher as we
+        async def fake_call_llm(domain, meta, api_key):
+            return "Dental & Design", "healthcare"
+        mp.setattr(we, "_call_llm", fake_call_llm)
+
+        enricher = WebEnricher(api_key="sk-fake")
+        async with httpx.AsyncClient() as http:
+            result = await enricher.enrich("dentaldesign.com", "dentaldesign.com", [], "")
+
+    assert result.company_name == "Dental & Design"
+    assert result.company_industry == "healthcare"
+
+
+def test_industry_taxonomy_has_expected_entries():
+    assert "software" in INDUSTRY_TAXONOMY
+    assert "fintech" in INDUSTRY_TAXONOMY
+    assert "healthcare" in INDUSTRY_TAXONOMY
+    assert len(INDUSTRY_TAXONOMY) >= 10

@@ -33,6 +33,8 @@ dependencies = [
     "python-whois>=0.9.4",
     # Stripe billing
     "stripe>=10.0.0",
+    # LLM enrichment — company_name + industry extraction from homepage metadata
+    "anthropic>=0.40.0",
 ]
 
 [project.optional-dependencies]
